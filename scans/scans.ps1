@@ -39,4 +39,4 @@ $ShortCut = $Shell.CreateShortcut("C:\Users\Public\Desktop\Scans.lnk")
 $ShortCut.TargetPath = "C:\$folderName"
 $ShortCut.IconLocation = "%SystemRoot%\system32\imageres.dll,245";
 $ShortCut.Description = "Local Scan Folder";
-$ShortCut.Save()
+$ShortCut.Save() | Out-Null
