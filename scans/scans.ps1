@@ -26,7 +26,7 @@ if(!(Test-Path -Path "C:\$folderName")){
     New-Item -Path 'C:\' -Name $folderName -ItemType Directory | Out-Null;
 }
 
-# Check if scans scare exists, create if missing
+# Check if scans share exists, create if missing
 if(!((Get-SmbShare).Name).toLower().Contains($folderName)){
     New-SmbShare -Name $folderName -Path "C:\$folderName" -FullAccess $user | Out-Null;
 } else {
