@@ -1,7 +1,7 @@
 # Setup parameters and defaults
 param (
 	[string]$username = "scans",
-	[string]$password = "scans",
+	[SecureString]$password = "scans",
 	[string]$folderPath = "C:\scans",
 	[string]$shareName = "scans",
 	[string]$description = "Scanning setup by PSP."
@@ -9,9 +9,9 @@ param (
 
 # Creates scans user account if it doesn't exist, otherwise sets password for account
 if(![boolean](Get-LocalUser -Name $username -ErrorAction Ignore)) {
-	New-LocalUser -Name $username -Password $($password | ConvertTo-SecureString -AsPlainText -Force) -Description $description -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword -FullName "scans" -ErrorAction Ignore | Out-Null;
+	New-LocalUser -Name $username -Password $password -Description $description -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword -FullName "scans" -ErrorAction Ignore | Out-Null;
 } else {
-	Set-LocalUser -Name $username -Password $($password | ConvertTo-SecureString -AsPlainText -Force) -Description $description -ErrorAction Ignore | Out-Null;
+	Set-LocalUser -Name $username -Password $password -Description $description -ErrorAction Ignore | Out-Null;
 }
 
 
@@ -35,6 +35,10 @@ $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($username,
 $folderAcl.SetAccessRule($rule)
 $rule = New-Object System.Security.AccessControl.FileSystemAccessRule("users", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
 $folderAcl.SetAccessRule($rule)
+if(!(Get-CimInstance -ClassName Win32_ComputerSystem).PartOfDomain){
+	$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("domainusers", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+	$folderAcl.SetAccessRule($rule)
+}
 Set-Acl $folderPath $folderAcl
 
 # Check if scans share exists, create if missing
