@@ -1,22 +1,24 @@
 # Setup parameters and defaults
 param (
 	[string]$username = "scans",
-	[SecureString]$password = "scans",
+	[string]$password = "scans",
 	[string]$folderPath = "C:\scans",
 	[string]$shareName = "scans",
 	[string]$description = "Scanning setup by PSP."
 )
 
+$computerDetails = Get-CimInstance -ClassName Win32_ComputerSystem
+
 # Creates scans user account if it doesn't exist, otherwise sets password for account
 if(![boolean](Get-LocalUser -Name $username -ErrorAction Ignore)) {
-	New-LocalUser -Name $username -Password $password -Description $description -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword -FullName "scans" -ErrorAction Ignore | Out-Null;
+	New-LocalUser -Name $username -Password $($password | ConvertTo-SecureString -Force) -Description $description -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword -FullName "scans" -ErrorAction Ignore | Out-Null;
 } else {
-	Set-LocalUser -Name $username -Password $password -Description $description -ErrorAction Ignore | Out-Null;
+	Set-LocalUser -Name $username -Password $($password | ConvertTo-SecureString -Force) -Description $description -ErrorAction Ignore | Out-Null;
 }
 
 
 # Hide scans account from login screen on non domain joined computers
-if(!(Get-CimInstance -ClassName Win32_ComputerSystem).PartOfDomain){	
+if(!$computerDetails.PartOfDomain){	
 	$path = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\Userlist';
 	if(!(Test-Path $path)){
 		New-Item -Path $path -Force | Out-Null;
@@ -35,10 +37,10 @@ $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($username,
 $folderAcl.SetAccessRule($rule)
 $rule = New-Object System.Security.AccessControl.FileSystemAccessRule("users", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
 $folderAcl.SetAccessRule($rule)
-if(!(Get-CimInstance -ClassName Win32_ComputerSystem).PartOfDomain){
+<# if(!(Get-CimInstance -ClassName Win32_ComputerSystem).PartOfDomain){
 	$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("domainusers", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
 	$folderAcl.SetAccessRule($rule)
-}
+} #> # need to get the correct 'domain users' user, haven't looked this up yet
 Set-Acl $folderPath $folderAcl
 
 # Check if scans share exists, create if missing
@@ -56,9 +58,17 @@ $desktopShortCut.IconLocation = "%SystemRoot%\system32\imageres.dll,245";
 $desktopShortCut.Description = $description;
 $desktopShortCut.Save() | Out-Null;
 
+# Set network profile to Private if not domain joined.
+if(!(Get-CimInstance -ClassName Win32_ComputerSystem).PartOfDomain){
+	Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory Private
+} else {
+	Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory DomainAuthenticated
+}
+
 # Notify user about setup
-<# $shellObject.Popup("Scanning setup is complete.
+$shellObject.Popup("Scanning setup is complete.
+Computer Name: $($computerDetails.Name)
 Username: $username
 Password: $password
 SMB Share: $shareName
-Local Dir: C:\$folderPath"); #>
+Local Dir: $folderPath");
