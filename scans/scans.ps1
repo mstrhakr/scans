@@ -7,17 +7,16 @@ param (
 	[string]$description = "Scanning setup by PSP."
 )
 
-$computerDetails = Get-CimInstance -ClassName Win32_ComputerSystem
-
 # Creates scans user account if it doesn't exist, otherwise sets password for account
 if(![boolean](Get-LocalUser -Name $username -ErrorAction Ignore)) {
-	New-LocalUser -Name $username -Password $($password | ConvertTo-SecureString -Force) -Description $description -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword -FullName "scans" -ErrorAction Ignore | Out-Null;
+	New-LocalUser -Name $username -Password $($password | ConvertTo-SecureString -AsPlainText -Force) -Description $description -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword -FullName "scans" -ErrorAction Ignore | Out-Null;
 } else {
-	Set-LocalUser -Name $username -Password $($password | ConvertTo-SecureString -Force) -Description $description -ErrorAction Ignore | Out-Null;
+	Set-LocalUser -Name $username -Password $($password | ConvertTo-SecureString -AsPlainText -Force) -Description $description -ErrorAction Ignore | Out-Null;
 }
 
 
 # Hide scans account from login screen on non domain joined computers
+$computerDetails = Get-CimInstance -ClassName Win32_ComputerSystem
 if(!$computerDetails.PartOfDomain){	
 	$path = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\Userlist';
 	if(!(Test-Path $path)){
@@ -35,9 +34,9 @@ if(!(Test-Path -Path $folderPath)){
 $folderAcl = (Get-Acl $folderPath)
 $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($username, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
 $folderAcl.SetAccessRule($rule)
-$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("users", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Users", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
 $folderAcl.SetAccessRule($rule)
-if(!(Get-CimInstance -ClassName Win32_ComputerSystem).PartOfDomain){
+if((Get-CimInstance -ClassName Win32_ComputerSystem).PartOfDomain){
 	$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Domain Users", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
 	$folderAcl.SetAccessRule($rule)
 }
@@ -83,4 +82,4 @@ Computer Name: $($computerDetails.Name)
 Username: $username
 Password: $password
 SMB Share: $shareName
-Local Dir: $folderPath");
+Local Dir: $folderPath") | Out-Null;
