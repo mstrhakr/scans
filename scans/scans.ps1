@@ -37,10 +37,10 @@ $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($username,
 $folderAcl.SetAccessRule($rule)
 $rule = New-Object System.Security.AccessControl.FileSystemAccessRule("users", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
 $folderAcl.SetAccessRule($rule)
-<# if(!(Get-CimInstance -ClassName Win32_ComputerSystem).PartOfDomain){
-	$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("domainusers", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+if(!(Get-CimInstance -ClassName Win32_ComputerSystem).PartOfDomain){
+	$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Domain Users", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
 	$folderAcl.SetAccessRule($rule)
-} #> # need to get the correct 'domain users' user, haven't looked this up yet
+}
 Set-Acl $folderPath $folderAcl
 
 # Check if scans share exists, create if missing
@@ -54,7 +54,19 @@ if(!((Get-SmbShare).Name).toLower().Contains($shareName)){
 $shellObject = New-Object -ComObject ("WScript.Shell");
 $desktopShortCut = $shellObject.CreateShortcut("C:\Users\Public\Desktop\Scans.lnk");
 $desktopShortCut.TargetPath = $folderPath;
-$desktopShortCut.IconLocation = "%SystemRoot%\system32\imageres.dll,245";
+
+# Get the Windows build number
+$build = (Get-CimInstance Win32_OperatingSystem).BuildNumber
+
+# Compare the build number with the known values for Windows 10 and Windows 11
+if ($build -lt 22000) {
+    # This is Windows 10
+	$desktopShortCut.IconLocation = "%SystemRoot%\system32\imageres.dll,244";
+} elseif ($build -ge 22000) {
+    # This is Windows 11
+	$desktopShortCut.IconLocation = "%SystemRoot%\system32\imageres.dll,245";
+}
+
 $desktopShortCut.Description = $description;
 $desktopShortCut.Save() | Out-Null;
 
