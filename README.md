@@ -1,6 +1,4 @@
 # **Scanning Setup Utility**
-*V1.3.0.0*
-
 ## The Basics
 
 The exe is compiled with PS2EXE from the source available here.
