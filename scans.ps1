@@ -12,9 +12,13 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.Web
 
+# Download icon
+Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/scans.ico' -OutFile 'C:\ProgramData\scans.ico' | Out-Null;
+
 # Create a new form with a title and a size
 $scanningSetupForm = New-Object System.Windows.Forms.Form
 $scanningSetupForm.Text = 'Choose your scanning options below.'
+$scanningSetupForm.Icon = 'C:\ProgramData\scans.ico'
 $scanningSetupForm.Size = New-Object System.Drawing.Size (300,200)
 $scanningSetupForm.StartPosition = 'CenterScreen'
 
@@ -102,7 +106,6 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
 }
 $scanningSetupForm.Close() | Out-Null;
 
-
 # Creates scans user account if it doesn't exist, otherwise sets password for account
 if(![boolean](Get-LocalUser -Name $username -ErrorAction SilentlyContinue)) {
 	Write-Output "Creating New User.`nUsername: $username`nPassword: $password"
@@ -113,7 +116,6 @@ if(![boolean](Get-LocalUser -Name $username -ErrorAction SilentlyContinue)) {
 	Set-LocalUser -Name $username -Password $($password | ConvertTo-SecureString -AsPlainText -Force) -Description $description -AccountNeverExpires -PasswordNeverExpires $true -UserMayChangePassword $false -FullName "scans" | Out-Null;
 	if(!$?){Write-Error $?.Error}
 }
-
 
 # Hide scans account from login screen on non domain joined computers
 $computerDetails = Get-CimInstance -ClassName Win32_ComputerSystem
@@ -133,7 +135,7 @@ if($? -and $hideAccount.($username) -eq 0){
 
 # Check if scans folder exists, create if missing
 if(!(Test-Path -Path $folderPath)){
-	Write-Warning "Scans folder doesn't exist. Creating Folder at $folderPath"
+	Write-Output "Scans folder doesn't exist. Creating Folder at $folderPath"
 	New-Item -Path $($folderPath.Split(':')[0] + ':/') -Name $folderPath.Split(':')[1] -ItemType Directory | Out-Null;
     #Check if creating folder was successful $? = Was last command successful?(T/F)
 	if ($?) {
@@ -167,13 +169,11 @@ if(!((Get-SmbShare).Name).toLower().Contains($shareName)){
     Grant-SmbShareAccess -Name $shareName -AccountName $username -AccessRight Full -Force | Out-Null;
 }
 
-Invoke-WebRequest '' -OutFile c:\file.ext
-
 # Create scan folder desktop shortcut
 $shellObject = New-Object -ComObject ("WScript.Shell");
 $desktopShortCut = $shellObject.CreateShortcut("C:\Users\Public\Desktop\Scans.lnk");
 $desktopShortCut.TargetPath = $folderPath;
-$desktopShortCut.IconLocation = "";
+$desktopShortCut.IconLocation = 'C:\ProgramData\scans.ico';
 $desktopShortCut.Description = $description;
 Write-Output "Creating Desktop Shortcut"
 $desktopShortCut.Save() | Out-Null;
@@ -192,24 +192,3 @@ if(!$domainJoined -and $networkCategory -ne 'Private'){
 } else {
 	Write-Output "Net Connection Profile is already set to $networkCategory"
 }
-
-
-if ($password -eq "scans"){
-	$clipboard = 'Copied computer name to clipboard'
-	Set-Clipboard $computerDetails.Name
-} else {
-	$clipboard = "Copied custom password to clipboard"
-	Set-Clipboard $password
-}
-
-# Notify user about setup
-Write-Output "Notified user of scanning details"
-$shellObject.Popup("Scanning setup is complete.
-Desktop shortcut has been created.
-
-Username: $username
-Password: $password
-Remote Dir: \\$($computerDetails.Name)\$shareName
-Local Dir: $folderPath
-$msg
-$clipboard") | Out-Null;
