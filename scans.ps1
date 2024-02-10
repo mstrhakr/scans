@@ -128,7 +128,7 @@ $progrssBarObject = New-Object System.Windows.Forms.ProgressBar
 $progrssBarObject.Location = New-Object System.Drawing.Point (10,30)
 $progrssBarObject.Size = New-Object System.Drawing.Size (265,20)
 $progrssBarObject.Minimum = 0
-$progrssBarObject.Maximum = 100
+$progrssBarObject.Maximum = 13
 $progrssBarObject.Value = 0
 $loadingForm.Controls.Add($progrssBarObject)
 $detailsBox = New-Object	System.Windows.Forms.ListBox
@@ -138,10 +138,10 @@ $loadingForm.Controls.Add($detailsBox)
 
 $loadingForm.Show()
 
-$percent = 0.0
+$percent = 0
 function updateProgressBar($text){
 	$script:loadingText.Text = $text
-	$script:percent += (100/13)
+	$script:percent += 1
 	$script:progrssBarObject.Value = $script:percent
 	$script:loadingFormHeight += 12
 	$script:detailsBox.Items.Add($text)
@@ -244,7 +244,6 @@ if(!$domainJoined -and $networkCategory -ne 'Private'){
 }
 
 updateProgressBar "Finished, Exiting"
-$progrssBarObject.Value = 100
 Start-Sleep -Seconds 5
 
 $loadingForm.Close() | Out-Null;
