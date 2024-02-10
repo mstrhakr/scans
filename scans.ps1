@@ -1,8 +1,9 @@
 # v1.4.0.1
 # Added gui for exe deployment
+
 # Setup variables and defaults
-[string]$username = 'scans'
-[string]$password = 'scans'
+[string]$scanUser = 'scans'
+[string]$scanPass = 'scans'
 [string]$folderPath = 'C:\scans'
 [string]$shareName = 'scans'
 [string]$description = 'Scanning setup by PSP.'
@@ -10,63 +11,64 @@
 # Load the .NET Framework classes
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
-Add-Type -AssemblyName System.Web
+# Add-Type -AssemblyName System.Web
+$ProgressPreference = 'SilentlyContinue'
 
 # Download icon
 Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/scans.ico' -OutFile 'C:\ProgramData\scans.ico' | Out-Null;
 
 # Create a new form with a title and a size
 $scanningSetupForm = New-Object System.Windows.Forms.Form
-$scanningSetupForm.Text = 'Choose your scanning options below.'
+$scanningSetupForm.Text = 'Scans.exe'
 $scanningSetupForm.Icon = 'C:\ProgramData\scans.ico'
 $scanningSetupForm.Size = New-Object System.Drawing.Size (300,200)
 $scanningSetupForm.StartPosition = 'CenterScreen'
 
 # Create a text box for the user to choose a custom username
-$usernameLabel = New-Object	System.Windows.Forms.Label
-$usernameLabel.Location = New-Object System.Drawing.Point (10,10)
-$usernameLabel.Size = New-Object System.Drawing.Size (70,20)
-$usernameLabel.Text = 'Username:'
-$scanningSetupForm.Controls.Add($usernameLabel)
-$usernameTextBox = New-Object System.Windows.Forms.TextBox
-$usernameTextBox.Location = New-Object System.Drawing.Point (75,10)
-$usernameTextBox.Size = New-Object System.Drawing.Size (150,20)
-$usernameTextBox.Text = $username
-$scanningSetupForm.Controls.Add($usernameTextBox)
+$scanUserLabel = New-Object	System.Windows.Forms.Label
+$scanUserLabel.Location = New-Object System.Drawing.Point (10,10)
+$scanUserLabel.Size = New-Object System.Drawing.Size (70,20)
+$scanUserLabel.Text = 'Username:'
+$scanningSetupForm.Controls.Add($scanUserLabel)
+$scanUserTextBox = New-Object System.Windows.Forms.TextBox
+$scanUserTextBox.Location = New-Object System.Drawing.Point (80,10)
+$scanUserTextBox.Size = New-Object System.Drawing.Size (190,20)
+$scanUserTextBox.Text = $scanUser
+$scanningSetupForm.Controls.Add($scanUserTextBox)
 
 # Create a text box for the user to choose a custom password
-$passwordLabel = New-Object	System.Windows.Forms.Label
-$passwordLabel.Location = New-Object System.Drawing.Point (10,30)
-$passwordLabel.Size = New-Object System.Drawing.Size (70,20)
-$passwordLabel.Text = 'Password:'
-$scanningSetupForm.Controls.Add($passwordLabel)
-$passwordTextBox = New-Object System.Windows.Forms.TextBox
-$passwordTextBox.Location = New-Object System.Drawing.Point (75,30)
-$passwordTextBox.Size = New-Object System.Drawing.Size (260,20)
-$passwordTextBox.Text = $password # [System.Web.Security.Membership]::GeneratePassword(10, 0)
-$scanningSetupForm.Controls.Add($passwordTextBox)
+$scanPassLabel = New-Object	System.Windows.Forms.Label
+$scanPassLabel.Location = New-Object System.Drawing.Point (10,35)
+$scanPassLabel.Size = New-Object System.Drawing.Size (70,20)
+$scanPassLabel.Text = 'Password:'
+$scanningSetupForm.Controls.Add($scanPassLabel)
+$scanPassTextBox = New-Object System.Windows.Forms.TextBox
+$scanPassTextBox.Location = New-Object System.Drawing.Point (80,35)
+$scanPassTextBox.Size = New-Object System.Drawing.Size (190,20)
+$scanPassTextBox.Text = $scanPass # [System.Web.Security.Membership]::GeneratePassword(10, 0)
+$scanningSetupForm.Controls.Add($scanPassTextBox)
 
 # Create a text box for the user to choose a custom path
 $folderPathLabel = New-Object	System.Windows.Forms.Label
-$folderPathLabel.Location = New-Object System.Drawing.Point (10,50)
+$folderPathLabel.Location = New-Object System.Drawing.Point (10,60)
 $folderPathLabel.Size = New-Object System.Drawing.Size (70,20)
 $folderPathLabel.Text = 'Local Dir:'
 $scanningSetupForm.Controls.Add($folderPathLabel)
 $folderPathTextBox = New-Object System.Windows.Forms.TextBox
-$folderPathTextBox.Location = New-Object System.Drawing.Point (75,50)
-$folderPathTextBox.Size = New-Object System.Drawing.Size (260,20)
+$folderPathTextBox.Location = New-Object System.Drawing.Point (80,60)
+$folderPathTextBox.Size = New-Object System.Drawing.Size (190,20)
 $folderPathTextBox.Text = $folderPath
 $scanningSetupForm.Controls.Add($folderPathTextBox)
 
 # Create a text box for the user to choose a smb share
 $smbShareLabel = New-Object	System.Windows.Forms.Label
-$smbShareLabel.Location = New-Object System.Drawing.Point (10,70)
+$smbShareLabel.Location = New-Object System.Drawing.Point (10,85)
 $smbShareLabel.Size = New-Object System.Drawing.Size (70,20)
 $smbShareLabel.Text = 'SMB Share:'
 $scanningSetupForm.Controls.Add($smbShareLabel)
 $smbShareTextBox = New-Object System.Windows.Forms.TextBox
-$smbShareTextBox.Location = New-Object System.Drawing.Point (75,70)
-$smbShareTextBox.Size = New-Object System.Drawing.Size (260,20)
+$smbShareTextBox.Location = New-Object System.Drawing.Point (80,85)
+$smbShareTextBox.Size = New-Object System.Drawing.Size (190,20)
 $smbShareTextBox.Text = $shareName
 $scanningSetupForm.Controls.Add($smbShareTextBox)
 
@@ -90,105 +92,159 @@ $scanningSetupForm.Controls.Add($cancelButton)
 
 # Show the form and wait for the user input
 $scanningSetupForm.Topmost = $true
-$scanningSetupForm.Add_Shown({$passwordTextBox.Select()})
+$scanningSetupForm.Add_Shown({$scanPassTextBox.Select()})
 $result = $scanningSetupForm.ShowDialog()
+
+#new ProgressBar();
 
 # Check the result and get the text input
 if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-	$script:username = $usernameTextBox.Text
-	$script:password = $passwordTextBox.Text
+	$script:scanUser = $scanUserTextBox.Text
+	$script:scanPass = $scanPassTextBox.Text
 	$script:folderPath = $folderPathTextBox.Text
 	$script:shareName = $smbShareTextBox.Text
-	Write-Output "Username: $script:username`nPassword: $script:password`nLocal Dir: $script:folderPath`nSMB Share: $script:shareName"
+	Write-Verbose "Username: $script:username`nPassword: $script:password`nLocal Dir: $script:folderPath`nSMB Share: $script:shareName"
 } else {
 	Write-Error "You canceled scanning setup"
 	Exit
 }
 $scanningSetupForm.Close() | Out-Null;
 
+# Create a new form with a title and a size
+$loadingForm = New-Object System.Windows.Forms.Form
+$loadingForm.Text = 'Scans.exe - Loading...'
+$loadingForm.Icon = 'C:\ProgramData\scans.ico'
+$loadingFormHeight = 120
+$loadingForm.Size = New-Object System.Drawing.Size (300,$loadingFormHeight)
+$loadingForm.StartPosition = 'CenterScreen'
+
+# Create a text box for the user to choose a custom password
+$loadingText = New-Object	System.Windows.Forms.Label
+$loadingText.Location = New-Object System.Drawing.Point (10,10)
+$loadingText.Size = New-Object System.Drawing.Size (280,20)
+$loadingText.Text = 'Loading...'
+$loadingForm.Controls.Add($loadingText)
+$progrssBarObject = New-Object System.Windows.Forms.ProgressBar
+$progrssBarObject.Location = New-Object System.Drawing.Point (10,30)
+$progrssBarObject.Size = New-Object System.Drawing.Size (265,20)
+$progrssBarObject.Minimum = 0
+$progrssBarObject.Maximum = 100
+$progrssBarObject.Value = 0
+$loadingForm.Controls.Add($progrssBarObject)
+$detailsBox = New-Object	System.Windows.Forms.ListBox
+$detailsBox.Location = New-Object System.Drawing.Point (10,60)
+$detailsBox.Size = New-Object System.Drawing.Size (265,$($loadingFormHeight - 40))
+$loadingForm.Controls.Add($detailsBox)
+
+$loadingForm.Show()
+
+$percent = 0.0
+function updateProgressBar($text){
+	$script:loadingText.Text = $text
+	$script:percent += (100/13)
+	$script:progrssBarObject.Value = $script:percent
+	$script:loadingFormHeight += 12
+	$script:detailsBox.Items.Add($text)
+	$script:loadingForm.Size = New-Object System.Drawing.Size (300,$script:loadingFormHeight)
+	$script:detailsBox.Size = New-Object System.Drawing.Size (265,$($script:loadingFormHeight - 100))
+	Start-Sleep -Milliseconds 250
+}
+
+# Gather computer details
+updateProgressBar "Gathering local computer details"
+$computerDetails = Get-CimInstance -ClassName Win32_ComputerSystem
+$domainJoined = $computerDetails.PartOfDomain
+
 # Creates scans user account if it doesn't exist, otherwise sets password for account
-if(![boolean](Get-LocalUser -Name $username -ErrorAction SilentlyContinue)) {
-	Write-Output "Creating New User.`nUsername: $username`nPassword: $password"
-	New-LocalUser -Name $username -Password $($password | ConvertTo-SecureString -AsPlainText -Force) -Description $description -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword -FullName "scans" | Out-Null;
-	if(!$?){Write-Error $?.Error}
+updateProgressBar "Checking User Details"
+if(![boolean](Get-LocalUser -Name $scanUser -ErrorAction SilentlyContinue)) {
+	updateProgressBar "Creating New User"
+	New-LocalUser -Name $scanUser -Password $($scanPass | ConvertTo-SecureString -AsPlainText -Force) -Description "$description`nPassword: $scanPass" -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword -FullName "scans" | Out-Null;
 } else {
-	Write-Output "Updating User.`nUsername: $username`nPassword: $password"
-	Set-LocalUser -Name $username -Password $($password | ConvertTo-SecureString -AsPlainText -Force) -Description $description -AccountNeverExpires -PasswordNeverExpires $true -UserMayChangePassword $false -FullName "scans" | Out-Null;
-	if(!$?){Write-Error $?.Error}
+	updateProgressBar "Updating Existing User"
+	Set-LocalUser -Name $scanUser -Password $($scanPass | ConvertTo-SecureString -AsPlainText -Force) -Description "$description`nPassword: $scanPass" -AccountNeverExpires -PasswordNeverExpires $true -UserMayChangePassword $false -FullName "scans" | Out-Null;
 }
 
 # Hide scans account from login screen on non domain joined computers
-$computerDetails = Get-CimInstance -ClassName Win32_ComputerSystem
-$domainJoined = $computerDetails.PartOfDomain
 $path = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\Userlist'
-$hideAccount = Get-ItemProperty -path $path -name $username -ErrorAction SilentlyContinue;
-if($? -and $hideAccount.($username) -eq 0){
-	Write-Output "User account is already hidden from login screen"
+$hideAccount = Get-ItemProperty -path $path -name $scanUser -ErrorAction SilentlyContinue;
+if($? -and $hideAccount.($scanUser) -eq 0){
+	updateProgressBar "User account is already hidden from login screen"
 } elseif(!$domainJoined){
-	Write-Output "Hiding scans user from login screen"
+	updateProgressBar "Hiding scans user from login screen"
 	if(!(Test-Path $path)){
 		Write-Verbose "Creating Registry Object at $path"
 		New-Item -Path $path -Force | Out-Null;
 	}
-	New-ItemProperty -path $path -name $username -value 0 -PropertyType 'DWord' -Force | Out-Null;
+	New-ItemProperty -path $path -name $scanUser -value 0 -PropertyType 'DWord' -Force | Out-Null;
+} else {
+	updateProgressBar "Computer is domain joined, continuing"
 }
 
 # Check if scans folder exists, create if missing
+updateProgressBar "Checking if scans folder exists"
 if(!(Test-Path -Path $folderPath)){
-	Write-Output "Scans folder doesn't exist. Creating Folder at $folderPath"
+	updateProgressBar "Scans folder doesn't exist. Creating Folder at $folderPath"
 	New-Item -Path $($folderPath.Split(':')[0] + ':/') -Name $folderPath.Split(':')[1] -ItemType Directory | Out-Null;
     #Check if creating folder was successful $? = Was last command successful?(T/F)
 	if ($?) {
-		Write-Output "New folder created at $folderPath."
+		Write-Verbose "New folder created at $folderPath."
 	} else {
 		Write-Error "Folder creation failed!`nManually Create Folder before Continuing!"
 	}
 } else {
-	Write-Output "Scans folder already exists"
+	updateProgressBar "Scans folder already exists"
 }
 
-# Grant full recursive permissions on the scan folder to the scan user and all local users
+# Grant full recursive permissions on the scan folder to the scan user and current local user
+updateProgressBar "Setting folder permissions"
 $folderAcl = (Get-Acl $folderPath)
-$rule = New-Object System.Security.AccessControl.FileSystemAccessRule($username, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+$rule = New-Object System.Security.AccessControl.FileSystemAccessRule($Env:UserName, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
 $folderAcl.SetAccessRule($rule)
-$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Everyone", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+$rule = New-Object System.Security.AccessControl.FileSystemAccessRule($scanUser, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
 $folderAcl.SetAccessRule($rule)
+<# $rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Everyone", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+$folderAcl.SetAccessRule($rule) #>
 if($domainJoined){
 	$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Domain Users", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
 	$folderAcl.SetAccessRule($rule)
 }
-Write-Output "Setting folder permissions"
 Set-Acl $folderPath $folderAcl
 
 # Check if scans share exists, create if missing
+updateProgressBar "Checking if SMB share exists"
 if(!((Get-SmbShare).Name).toLower().Contains($shareName)){
-	Write-Output "Creating SMB share"
-    New-SmbShare -Name $shareName -Path $folderPath -FullAccess $username | Out-Null;
+	updateProgressBar "Creating SMB share"
+    New-SmbShare -Name $shareName -Path $folderPath -FullAccess $scanUser | Out-Null;
 } else {
-	Write-Output "Updating SMB share permissions"
-    Grant-SmbShareAccess -Name $shareName -AccountName $username -AccessRight Full -Force | Out-Null;
+	updateProgressBar "Updating SMB share permissions"
+    Grant-SmbShareAccess -Name $shareName -AccountName $scanUser -AccessRight Full -Force | Out-Null;
 }
 
 # Create scan folder desktop shortcut
+updateProgressBar "Creating Desktop Shortcut"
 $shellObject = New-Object -ComObject ("WScript.Shell");
 $desktopShortCut = $shellObject.CreateShortcut("C:\Users\Public\Desktop\Scans.lnk");
 $desktopShortCut.TargetPath = $folderPath;
 $desktopShortCut.IconLocation = 'C:\ProgramData\scans.ico';
 $desktopShortCut.Description = $description;
-Write-Output "Creating Desktop Shortcut"
 $desktopShortCut.Save() | Out-Null;
 
 # Set network profile to Private if not domain joined.
 $networkCategory = (Get-NetConnectionProfile).NetworkCategory
-Write-Output "Checking Net Connection Profile"
+updateProgressBar "Checking Net Connection Profile"
 if(!$domainJoined -and $networkCategory -ne 'Private'){
-	$msg = "Set Net Connection Profile to Private"
-	Write-Output $msg
+	updateProgressBar "Set Net Connection Profile to Private"
 	Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory Private
 } elseif ($domainJoined -and $networkCategory -ne 'DomainAuthenticated'){
-	$msg = "Set Net Connection Profile to Domain Authenticated"
-	Write-Output $msg
+	updateProgressBar "Set Net Connection Profile to Domain Authenticated"
 	Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory DomainAuthenticated
 } else {
-	Write-Output "Net Connection Profile is already set to $networkCategory"
+	updateProgressBar "Net Connection Profile is already set to $networkCategory"
 }
+
+updateProgressBar "Finished, Exiting"
+$progrssBarObject.Value = 100
+Start-Sleep -Seconds 5
+
+$loadingForm.Close() | Out-Null;
