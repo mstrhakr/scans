@@ -12,5 +12,6 @@ This includes:
 - Sharing the scans folder via SMB as ***scans*** (by default)
 - Setting SMB permissions for the SMB share
 - Creating a desktop shortcut to the scans folder
+- Setting the Network Category to Private
 
 All you have to do is run scans.exe and follow the prompts, it's as easy as that.
