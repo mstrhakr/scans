@@ -249,16 +249,16 @@ if(!((Get-SmbShare).Name).toLower().Contains($shareName)){
 }
 
 # Create scan folder desktop shortcut
-$shortcutPath = "C:\Users\Public\Desktop\Scans.lnk"
-if ((Test-Path $shortcutPath -PathType Leaf) -and $shellObject.CreateShortcut($shortcutPath).TargetPath -eq $folderPath){
-	updateProgressBar "Creating Desktop Shortcut" 500
-	$shellObject = New-Object -ComObject ("WScript.Shell");
-	$desktopShortCut = $shellObject.CreateShortcut($shortcutPath);
-	$desktopShortCut.TargetPath = $folderPath;
-	$desktopShortCut.IconLocation = 'C:\ProgramData\scans.ico';
-	$desktopShortCut.Description = $description;
-	$desktopShortCut.Save() | Out-Null;
-}
+updateProgressBar "Creating Desktop Shortcut" 500;
+$shortcutPath = "C:\Users\Public\Desktop\Scans.lnk";
+$iconPath = 'C:\ProgramData\scans.ico';
+$shellObject = New-Object -ComObject ("WScript.Shell");
+$desktopShortCut = $shellObject.CreateShortcut($shortcutPath);
+$desktopShortCut.TargetPath = $folderPath;
+$desktopShortCut.IconLocation = $iconPath;
+$desktopShortCut.Description = $description;
+$desktopShortCut.Save() | Out-Null;
+
 
 
 # Set network profile to Private if not domain joined.
