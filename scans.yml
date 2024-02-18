@@ -1,0 +1,56 @@
+              name: Sign scans.exe with cosign and create a release
+
+              on:
+                push:
+                  branches:
+                    - main
+
+              jobs:
+                release:
+                  runs-on: windows-latest
+
+                  steps:
+                    - name: Checkout code
+                      uses: actions/checkout@v2
+
+                    - name: Set up PowerShell
+                      uses: actions/setup-powershell@v1
+
+                    - name: Run tests
+                      run: |
+                        # Replace this with the command to run your tests
+                        pwsh -File run-tests.ps1
+
+                    - name: Run compile.ps1
+                      run: pwsh -File compile.ps1 -Version "1.5.0.${{ github.run_number }}"
+
+                    - name: Install cosign
+                      uses: sigstore/cosign-installer@v3.4.0
+
+                    - name: Generate key pair
+                      run: cosign generate-key-pair
+
+                    - name: Sign scans.exe
+                      run: cosign sign -key cosign.key scans.exe
+
+                    - name: Create Release
+                      id: create_release
+                      uses: actions/create-release@v1
+                      env:
+                        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                      with:
+                        tag_name: ${{ github.run_number }}
+                        release_name: Release ${{ github.run_number }}
+                        draft: false
+                        prerelease: false
+
+                    - name: Upload Release Asset
+                      id: upload_release_asset
+                      uses: actions/upload-release-asset@v1
+                      env:
+                        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                      with:
+                        upload_url: ${{ steps.create_release.outputs.upload_url }}
+                        asset_path: ./scans.exe
+                        asset_name: scans.exe
+                        asset_content_type: application/octet-stream
