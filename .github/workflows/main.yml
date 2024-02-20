@@ -16,8 +16,8 @@ jobs:
       - name: Set up PowerShell
         uses: actions/powershell-script
 
-      - name: Run compile.ps1
-        run: pwsh -File compile.ps1 -Version "1.3.0.${{ github.run_number }}"
+      - name: Run scans.compile.ps1
+        run: pwsh -File scans.compile.ps1 -Version "1.3.0.${{ github.run_number }}"
 
       - name: Install cosign
         uses: sigstore/cosign-installer@v3.4.0
