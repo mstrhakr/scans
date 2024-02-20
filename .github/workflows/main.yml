@@ -3,7 +3,7 @@ name: Sign scans.exe with cosign and create a release
 on:
   push:
     branches:
-      - main
+      - refactor
 
 jobs:
   release:
