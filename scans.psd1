@@ -12,7 +12,7 @@
 RootModule = 'scans.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.3.0.19'
+ModuleVersion = '1.3.0.53'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -69,7 +69,7 @@ RequiredAssemblies = @('System.Windows.Forms', 'System.Drawing', 'System.Web')
 # NestedModules = @()
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = 'Get-Icon', 'Show-ScanningSetupForm', 'New-LoadingForm', 'Set-ScanUser', 'Hide-ScanUserFromLoginScreen', 'New-ScanFolder', 'Set-ScanFolderPermissions', 'Set-SmbShare', 'New-DesktopShortcut', 'Set-NetworkSettings', 'Update-ProgressBar'
+FunctionsToExport = 'Get-Icon', 'Show-ScanningSetupForm', 'New-LoadingForm', 'Set-ScanUser', 'Hide-ScanUserFromLoginScreen', 'New-ScanFolder', 'Set-ScanFolderPermissions', 'Set-ScansSmbShare', 'New-DesktopShortcut', 'Set-NetworkSettings', 'Update-ProgressBar'
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = '*'

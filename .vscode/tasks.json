@@ -4,7 +4,13 @@
         {
             "label": "Compile",
             "type": "shell",
-            "command": "PowerShell -ExecutionPolicy Bypass -File ${workspaceFolder}/compile.ps1",
+            "command": "powershell -ExecutionPolicy Bypass -File ${workspaceFolder}/scans.compile.ps1",
+            "problemMatcher": []
+        },
+        {
+            "label": "Publish",
+            "type": "shell",
+            "command": "powershell -ExecutionPolicy Bypass -File ${workspaceFolder}/scans.publish.ps1",
             "problemMatcher": []
         }
     ]

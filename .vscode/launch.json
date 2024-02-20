@@ -6,19 +6,33 @@
             "type": "PowerShell",
             "request": "launch",
             "script": "${file}",
+            "cwd": "${cwd}"
+        },
+        {
+            "name": "Launch scans.ps1 Script",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "${workspaceFolder}/scans.ps1",
+            "cwd": "${cwd}"
+        },
+        {
+            "name": "Publish updated scans.psm1 then launch scans.ps1",
+            "type": "PowerShell",
+            "request": "launch",
+            "preLaunchTask": "Publish",
+            "script": "${workspaceFolder}/scans.ps1",
             "cwd": "${cwd}",
             "internalConsoleOptions": "openOnSessionStart",
             "windows": {
                 "args": ["-NoExit", "-Command", "$DebugPreference='Continue'"]
             }
-        }
+        },
         {
-            "name": "Compile and Run",
+            "name": "Compile and Run scans.exe",
             "type": "PowerShell",
             "request": "launch",
             "preLaunchTask": "Compile",
             "script": "${workspaceFolder}/scans.exe",
-            "args": []
         }
     ]
 }
