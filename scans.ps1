@@ -134,7 +134,7 @@ function createLoadingForm($done){
 	$script:progrssBarObject.Location = New-Object System.Drawing.Point (10,30)
 	$script:progrssBarObject.Size = New-Object System.Drawing.Size (265,20)
 	$script:progrssBarObject.Minimum = 0
-	$script:progrssBarObject.Maximum = 11
+	$script:progrssBarObject.Maximum = 12
 	if($done -eq $true){
 		$script:progrssBarObject.Value = $script:progrssBarObject.Maximum
 	} else {
@@ -169,7 +169,7 @@ function createLoadingForm($done){
 $null = createLoadingForm $false
 $loadingForm.Show()
 $percent = 0
-function updateProgressBar($text, $sleep){
+function updateProgressBar($text, $sleep = 500){
 	$script:loadingText.Text = $text
 	$script:percent += 1
 	$script:progrssBarObject.Value = $script:percent
@@ -180,17 +180,17 @@ function updateProgressBar($text, $sleep){
 }
 
 # Gather computer details
-updateProgressBar "Gathering local computer details" 500
+updateProgressBar "Gathering local computer details"
 $computerDetails = Get-CimInstance -ClassName Win32_ComputerSystem
 $domainJoined = $computerDetails.PartOfDomain
 
 # Creates scans user account if it doesn't exist, otherwise sets password for account
-updateProgressBar "Checking User Details" 500
+updateProgressBar "Checking User Details"
 if(![boolean](Get-LocalUser -Name $scanUser -ErrorAction SilentlyContinue)) {
-	updateProgressBar "Creating New User" 500
+	updateProgressBar "Creating New User"
 	New-LocalUser -Name $scanUser -Password $($scanPass | ConvertTo-SecureString -AsPlainText -Force) -Description "$description`nPassword: $scanPass" -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword -FullName "scans" | Out-Null;
 } else {
-	updateProgressBar "Updating Existing User" 500
+	updateProgressBar "Updating Existing User"
 	Set-LocalUser -Name $scanUser -Password $($scanPass | ConvertTo-SecureString -AsPlainText -Force) -Description "$description`nPassword: $scanPass" -AccountNeverExpires -PasswordNeverExpires $true -UserMayChangePassword $false -FullName "scans" | Out-Null;
 }
 
@@ -198,16 +198,16 @@ if(![boolean](Get-LocalUser -Name $scanUser -ErrorAction SilentlyContinue)) {
 $path = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\Userlist'
 $hideAccount = Get-ItemProperty -path $path -name $scanUser -ErrorAction SilentlyContinue;
 if($? -and $hideAccount.($scanUser) -eq 0){
-	updateProgressBar "User account is already hidden from login screen" 500
+	updateProgressBar "User account is already hidden from login screen"
 } elseif(!$domainJoined){
-	updateProgressBar "Hiding scans user from login screen" 500
+	updateProgressBar "Hiding scans user from login screen"
 	if(!(Test-Path $path)){
 		Write-Verbose "Creating Registry Object at $path"
 		New-Item -Path $path -Force | Out-Null;
 	}
 	New-ItemProperty -path $path -name $scanUser -value 0 -PropertyType 'DWord' -Force | Out-Null;
 } else {
-	updateProgressBar "Computer is domain joined, continuing" 500
+	updateProgressBar "Computer is domain joined, continuing"
 }
 
 # Check if scans folder exists, create if missing
@@ -221,7 +221,7 @@ if(!(Test-Path -Path $folderPath)){
 		Write-Error "Folder creation failed!`nManually Create Folder before Continuing!"
 	}
 } else {
-	updateProgressBar "Scans folder already exists" 500
+	updateProgressBar "Scans folder already exists"
 }
 
 # Grant full recursive permissions on the scan folder to the scan user and current local user
@@ -241,15 +241,15 @@ Set-Acl $folderPath $folderAcl
 
 # Check if scans share exists, create if missing
 if(!((Get-SmbShare).Name).toLower().Contains($shareName)){
-	updateProgressBar "Creating SMB share" 500
+	updateProgressBar "Creating SMB share"
     New-SmbShare -Name $shareName -Path $folderPath -FullAccess $scanUser | Out-Null;
 } else {
-	updateProgressBar "Updating SMB share permissions" 500
+	updateProgressBar "Updating SMB share permissions"
     Grant-SmbShareAccess -Name $shareName -AccountName $scanUser -AccessRight Full -Force | Out-Null;
 }
 
 # Create scan folder desktop shortcut
-updateProgressBar "Creating Desktop Shortcut" 500;
+updateProgressBar "Creating Desktop Shortcut";
 $shortcutPath = "C:\Users\Public\Desktop\Scans.lnk";
 $iconPath = 'C:\ProgramData\scans.ico';
 $shellObject = New-Object -ComObject ("WScript.Shell");
@@ -264,13 +264,35 @@ $desktopShortCut.Save() | Out-Null;
 # Set network profile to Private if not domain joined.
 $networkCategory = (Get-NetConnectionProfile).NetworkCategory
 if(!$domainJoined -and $networkCategory -ne 'Private'){
-	updateProgressBar "Set Network Category to Private" 500
+	updateProgressBar "Set Network Category to Private"
 	Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory Private
 } elseif ($domainJoined -and $networkCategory -ne 'DomainAuthenticated'){
-	updateProgressBar "Set Network Category to Domain Authenticated" 500
+	updateProgressBar "Set Network Category to Domain Authenticated"
 	Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory DomainAuthenticated
 } else {
-	updateProgressBar "Network Category is already $networkCategory" 500
+	updateProgressBar "Network Category is already $networkCategory"
+}
+
+# Check if network file and printer sharing is enabled
+$sharingEnabled = Get-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound | Where-Object { $_.Enabled -eq 'True' }
+
+if(!$sharingEnabled) {
+	# If not enabled, enable it
+	Set-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound -Enabled True
+	updateProgressBar "Network file and printer sharing has been enabled."
+} else {
+	updateProgressBar "Network file and printer sharing is already enabled."
+}
+
+# Check if network discovery is enabled
+$discoveryEnabled = Get-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound | Where-Object { $_.Enabled -eq 'True' }
+
+if(!$discoveryEnabled) {
+	# If not enabled, enable it
+	Set-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound -Enabled True
+	updateProgressBar "Network discovery has been enabled."
+} else {
+	updateProgressBar "Network discovery is already enabled."
 }
 
 updateProgressBar "Finished" 0
