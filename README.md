@@ -17,12 +17,15 @@ This includes:
 All you have to do is run scans.exe and follow the prompts, it's as easy as that.
 
 First change any settings you want, the password is randomly generated 10 characters.
+
 ![Setup](https://github.com/mstrhakr/scans/blob/8278e8857e73fb1e950445fa734a13b6c6588c3d/img/scans-setup.png)
 
 Then wait for the utility to complete all the required changes to your system.
+
 ![Loading](https://github.com/mstrhakr/scans/blob/8278e8857e73fb1e950445fa734a13b6c6588c3d/img/scans-loading.png)
 
 When the utility is finished, click 'Done' to close the window.
+
 ![Finished](https://github.com/mstrhakr/scans/blob/8278e8857e73fb1e950445fa734a13b6c6588c3d/img/scans-finished.png)
 
 > Note: You must disable Real-Time Scanning in your AV software to run this utility
