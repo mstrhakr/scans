@@ -15,3 +15,5 @@ This includes:
 - Setting the Network Category to Private
 
 All you have to do is run scans.exe and follow the prompts, it's as easy as that.
+
+> Note: You must disable Real-Time Scanning in your AV software to run this utility
