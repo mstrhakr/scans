@@ -169,7 +169,7 @@ function createLoadingForm($done){
 $null = createLoadingForm $false
 $loadingForm.Show()
 $percent = 0
-function updateProgressBar($text, $sleep = 500){
+function Set-ProgressBar($text, $sleep = 500){
 	$script:loadingText.Text = $text
 	$script:percent += 1
 	$script:progrssBarObject.Value = $script:percent
@@ -180,17 +180,17 @@ function updateProgressBar($text, $sleep = 500){
 }
 
 # Gather computer details
-updateProgressBar "Gathering local computer details"
+Set-ProgressBar "Gathering local computer details"
 $computerDetails = Get-CimInstance -ClassName Win32_ComputerSystem
 $domainJoined = $computerDetails.PartOfDomain
 
 # Creates scans user account if it doesn't exist, otherwise sets password for account
-updateProgressBar "Checking User Details"
+Set-ProgressBar "Checking User Details"
 if(![boolean](Get-LocalUser -Name $scanUser -ErrorAction SilentlyContinue)) {
-	updateProgressBar "Creating New User"
+	Set-ProgressBar "Creating New User"
 	New-LocalUser -Name $scanUser -Password $($scanPass | ConvertTo-SecureString -AsPlainText -Force) -Description "$description`nPassword: $scanPass" -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword -FullName "scans" | Out-Null;
 } else {
-	updateProgressBar "Updating Existing User"
+	Set-ProgressBar "Updating Existing User"
 	Set-LocalUser -Name $scanUser -Password $($scanPass | ConvertTo-SecureString -AsPlainText -Force) -Description "$description`nPassword: $scanPass" -AccountNeverExpires -PasswordNeverExpires $true -UserMayChangePassword $false -FullName "scans" | Out-Null;
 }
 
@@ -198,21 +198,21 @@ if(![boolean](Get-LocalUser -Name $scanUser -ErrorAction SilentlyContinue)) {
 $path = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\Userlist'
 $hideAccount = Get-ItemProperty -path $path -name $scanUser -ErrorAction SilentlyContinue;
 if($? -and $hideAccount.($scanUser) -eq 0){
-	updateProgressBar "User account is already hidden from login screen"
+	Set-ProgressBar "User account is already hidden from login screen"
 } elseif(!$domainJoined){
-	updateProgressBar "Hiding scans user from login screen"
+	Set-ProgressBar "Hiding scans user from login screen"
 	if(!(Test-Path $path)){
 		Write-Verbose "Creating Registry Object at $path"
 		New-Item -Path $path -Force | Out-Null;
 	}
 	New-ItemProperty -path $path -name $scanUser -value 0 -PropertyType 'DWord' -Force | Out-Null;
 } else {
-	updateProgressBar "Computer is domain joined, continuing"
+	Set-ProgressBar "Computer is domain joined, continuing"
 }
 
 # Check if scans folder exists, create if missing
 if(!(Test-Path -Path $folderPath)){
-	updateProgressBar "Creating scans folder" 200
+	Set-ProgressBar "Creating scans folder" 200
 	New-Item -Path $($folderPath.Split(':')[0] + ':/') -Name $folderPath.Split(':')[1] -ItemType Directory | Out-Null;
     #Check if creating folder was successful $? = Was last command successful?(T/F)
 	if ($?) {
@@ -221,11 +221,11 @@ if(!(Test-Path -Path $folderPath)){
 		Write-Error "Folder creation failed!`nManually Create Folder before Continuing!"
 	}
 } else {
-	updateProgressBar "Scans folder already exists"
+	Set-ProgressBar "Scans folder already exists"
 }
 
 # Grant full recursive permissions on the scan folder to the scan user and current local user
-updateProgressBar "Setting folder permissions" 100
+Set-ProgressBar "Setting folder permissions" 100
 $folderAcl = (Get-Acl $folderPath)
 $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($Env:UserName, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
 $folderAcl.SetAccessRule($rule)
@@ -241,15 +241,15 @@ Set-Acl $folderPath $folderAcl
 
 # Check if scans share exists, create if missing
 if(!((Get-SmbShare).Name).toLower().Contains($shareName)){
-	updateProgressBar "Creating SMB share"
+	Set-ProgressBar "Creating SMB share"
     New-SmbShare -Name $shareName -Path $folderPath -FullAccess $scanUser | Out-Null;
 } else {
-	updateProgressBar "Updating SMB share permissions"
+	Set-ProgressBar "Updating SMB share permissions"
     Grant-SmbShareAccess -Name $shareName -AccountName $scanUser -AccessRight Full -Force | Out-Null;
 }
 
 # Create scan folder desktop shortcut
-updateProgressBar "Creating Desktop Shortcut";
+Set-ProgressBar "Creating Desktop Shortcut";
 $shortcutPath = "C:\Users\Public\Desktop\Scans.lnk";
 $iconPath = 'C:\ProgramData\scans.ico';
 $shellObject = New-Object -ComObject ("WScript.Shell");
@@ -264,13 +264,13 @@ $desktopShortCut.Save() | Out-Null;
 # Set network profile to Private if not domain joined.
 $networkCategory = (Get-NetConnectionProfile).NetworkCategory
 if(!$domainJoined -and $networkCategory -ne 'Private'){
-	updateProgressBar "Set Network Category to Private"
+	Set-ProgressBar "Set Network Category to Private"
 	Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory Private
 } elseif ($domainJoined -and $networkCategory -ne 'DomainAuthenticated'){
-	updateProgressBar "Set Network Category to Domain Authenticated"
+	Set-ProgressBar "Set Network Category to Domain Authenticated"
 	Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory DomainAuthenticated
 } else {
-	updateProgressBar "Network Category is already $networkCategory"
+	Set-ProgressBar "Network Category is already $networkCategory"
 }
 
 # Check if network file and printer sharing is enabled
@@ -279,9 +279,9 @@ $sharingEnabled = Get-NetFirewallRule -DisplayGroup "File and Printer Sharing" -
 if(!$sharingEnabled) {
 	# If not enabled, enable it
 	Set-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound -Enabled True -Profile $networkCategory
-	updateProgressBar "Network file and printer sharing has been enabled."
+	Set-ProgressBar "Network file and printer sharing has been enabled."
 } else {
-	updateProgressBar "Network file and printer sharing is already enabled."
+	Set-ProgressBar "Network file and printer sharing is already enabled."
 }
 
 # Check if network discovery is enabled
@@ -290,12 +290,12 @@ $discoveryEnabled = Get-NetFirewallRule -DisplayGroup "Network Discovery" -Direc
 if(!$discoveryEnabled) {
 	# If not enabled, enable it
 	Set-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound -Enabled True -Profile $networkCategory
-	updateProgressBar "Network discovery has been enabled."
+	Set-ProgressBar "Network discovery has been enabled."
 } else {
-	updateProgressBar "Network discovery is already enabled."
+	Set-ProgressBar "Network discovery is already enabled."
 }
 
-updateProgressBar "Finished" 0
+Set-ProgressBar "Finished" 0
 $loadingForm.Close() | Out-Null;
 createLoadingForm $true;
 $loadingForm.ShowDialog() | Out-Null;
