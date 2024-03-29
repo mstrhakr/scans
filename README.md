@@ -1,6 +1,12 @@
 # **Scanning Setup Utility**
 ## The Basics
 
+Either run the exe found in releases or paste the following into an admin powershell window.
+
+``` powershell
+irm https://raw.githubusercontent.com/mstrhakr/scans/main/scans.ps1 | iex
+```
+
 The exe is compiled with PS2EXE from the source available here.
 
 This script completely setups the user environment to allow a quick scan to SMB setup
