@@ -257,7 +257,7 @@ $settingsButton.Size = New-Object System.Drawing.Size(30, 30)
 
 # Load image from PNG file
 $imagePath = [System.IO.Path]::GetTempPath() + [System.IO.Path]::GetRandomFileName()
-Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/img/settings.ico' -OutFile $imagePath | Out-Null;
+Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/img/settings.png' -OutFile $imagePath | Out-Null;
 $image = [System.Drawing.Image]::FromFile($imagePath)
 $thumbnailSize = New-Object System.Drawing.Size(($settingsButton.Width - 10), ($settingsButton.Height - 10))
 $thumbnailImage = $image.GetThumbnailImage($thumbnailSize.Width, $thumbnailSize.Height, $null, [System.IntPtr]::Zero)
