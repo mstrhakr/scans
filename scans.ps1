@@ -12,7 +12,7 @@ Add-Type -AssemblyName System.Web
 $ProgressPreference = 'SilentlyContinue'
 
 # Download icon
-Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/scans.ico' -OutFile 'C:\ProgramData\scans.ico' | Out-Null;
+Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/img/scans.ico' -OutFile 'C:\ProgramData\scans.ico' | Out-Null;
 
 # Create a new form with a title and a size
 $scanningSetupForm = New-Object System.Windows.Forms.Form
