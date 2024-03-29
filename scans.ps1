@@ -92,8 +92,6 @@ $scanningSetupForm.Topmost = $true
 $scanningSetupForm.Add_Shown({$scanPassTextBox.Select()})
 $result = $scanningSetupForm.ShowDialog()
 
-#new ProgressBar();
-
 # Check the result and get the text input
 if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
 	$script:scanUser = $scanUserTextBox.Text
