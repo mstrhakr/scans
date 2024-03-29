@@ -28,7 +28,7 @@ First choose the inputs, the password is randomly generated at 10 characters lon
 
 Then if you want choose to disable any of the options on the settings page.
 
-![Settings](https://github.com/mstrhakr/scans/blob/8278e8857e73fb1e950445fa734a13b6c6588c3d/img/scans-settings.png)
+![Settings](https://github.com/mstrhakr/scans/blob/4c1559a1b6e29323f385dadc42478d3553e0a668/img/scans-settings.png)
 
 Then wait for the utility to complete all the required changes to your system.
 
