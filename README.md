@@ -24,18 +24,18 @@ All you have to do is run scans.exe and follow the prompts, it's as easy as that
 
 First choose the inputs, the password is randomly generated at 10 characters long.
 
-![Setup](https://github.com/mstrhakr/scans/blob/8278e8857e73fb1e950445fa734a13b6c6588c3d/img/scans-setup.png)
+![Setup](img/scans-setup.png)
 
 Then if you want choose to disable any of the options on the settings page.
 
-![Settings](https://github.com/mstrhakr/scans/blob/4c1559a1b6e29323f385dadc42478d3553e0a668/img/scans-settings.png)
+![Settings](img/scans-settings.png)
 
 Then wait for the utility to complete all the required changes to your system.
 
-![Loading](https://github.com/mstrhakr/scans/blob/8278e8857e73fb1e950445fa734a13b6c6588c3d/img/scans-loading.png)
+![Loading](img/scans-loading.png)
 
 When the utility is finished, click 'Done' to close the window.
 
-![Finished](https://github.com/mstrhakr/scans/blob/8278e8857e73fb1e950445fa734a13b6c6588c3d/img/scans-finished.png)
+![Finished](img/scans-finished.png)
 
 > Note: You must disable Real-Time Scanning in your AV software to run this utility
