@@ -278,7 +278,7 @@ $sharingEnabled = Get-NetFirewallRule -DisplayGroup "File and Printer Sharing" -
 
 if(!$sharingEnabled) {
 	# If not enabled, enable it
-	Set-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound -Enabled True
+	Set-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound -Enabled True -Profile $networkCategory
 	updateProgressBar "Network file and printer sharing has been enabled."
 } else {
 	updateProgressBar "Network file and printer sharing is already enabled."
@@ -289,7 +289,7 @@ $discoveryEnabled = Get-NetFirewallRule -DisplayGroup "Network Discovery" -Direc
 
 if(!$discoveryEnabled) {
 	# If not enabled, enable it
-	Set-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound -Enabled True
+	Set-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound -Enabled True -Profile $networkCategory
 	updateProgressBar "Network discovery has been enabled."
 } else {
 	updateProgressBar "Network discovery is already enabled."
