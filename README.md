@@ -38,4 +38,4 @@ When the utility is finished, click 'Done' to close the window.
 
 ![Finished](img/scans-finished.png)
 
-> Note: You must disable Real-Time Scanning in your AV software to run this utility
+> Note: You must disable Real-Time Scanning in your AV software to run this utility via the scans.exe available in the releases section
