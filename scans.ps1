@@ -284,7 +284,7 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
 else {
 	Write-Verbose "User canceled scanning setup"
 	$scanningSetupForm.Close() | Out-Null;
-	Exit
+	Exit 1
 }
 $details = New-Object System.Collections.ArrayList;
 function createLoadingForm($done) {
@@ -506,5 +506,5 @@ createLoadingForm $true;
 $loadingForm.ShowDialog() | Out-Null;
 if ($done -eq [System.Windows.Forms.DialogResult]::OK) {
 	$loadingForm.Close() | Out-Null;
-	Exit;
+	Exit 0
 }
