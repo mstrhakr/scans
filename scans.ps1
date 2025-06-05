@@ -21,7 +21,7 @@ $checkNetworkSettings = $true
 
 # Download icon
 $iconPath = 'C:\ProgramData\scans.ico'
-Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/img/scans.ico' -OutFile $iconPath | Out-Null;
+Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/img/scans.ico' -OutFile $iconPath | Out-Null
 
 function New-SettingsPage ($test) {
 	# Create form
@@ -257,7 +257,7 @@ $settingsButton.Size = New-Object System.Drawing.Size(30, 30)
 
 # Load image from PNG file
 $imagePath = [System.IO.Path]::GetTempPath() + [System.IO.Path]::GetRandomFileName()
-Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/img/settings.png' -OutFile $imagePath | Out-Null;
+Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/img/settings.png' -OutFile $imagePath | Out-Null
 $image = [System.Drawing.Image]::FromFile($imagePath)
 $thumbnailSize = New-Object System.Drawing.Size(($settingsButton.Width - 10), ($settingsButton.Height - 10))
 $thumbnailImage = $image.GetThumbnailImage($thumbnailSize.Width, $thumbnailSize.Height, $null, [System.IntPtr]::Zero)
@@ -283,10 +283,10 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
 }
 else {
 	Write-Verbose "User canceled scanning setup"
-	$scanningSetupForm.Close() | Out-Null;
-	Exit
+	$scanningSetupForm.Close() | Out-Null
+	Exit 1
 }
-$details = New-Object System.Collections.ArrayList;
+$details = New-Object System.Collections.ArrayList
 function createLoadingForm($done) {
 	# Create a new form with a title and a size
 	$script:loadingForm = New-Object System.Windows.Forms.Form
@@ -330,7 +330,7 @@ function createLoadingForm($done) {
 	$script:detailsBox.Size = New-Object System.Drawing.Size (265, 60)
 	if ($done -eq $true) {
 		foreach ($item in $script:details) {
-			$script:detailsBox.Items.Add($item) | Out-Null;
+			$script:detailsBox.Items.Add($item) | Out-Null
 		}
 	}
 	$script:loadingForm.Controls.Add($script:detailsBox)
@@ -357,9 +357,9 @@ function Set-ProgressBar($text, $sleep = 500) {
 	$script:loadingText.Text = $text
 	$script:percent += 1
 	$script:progrssBarObject.Value = $script:percent
-	$script:details.Insert(0, $text) | Out-Null;
+	$script:details.Insert(0, $text) | Out-Null
 	$script:text = $text
-	$script:detailsBox.Items.Insert(0, $text) | Out-Null;
+	$script:detailsBox.Items.Insert(0, $text) | Out-Null
 	Start-Sleep -Milliseconds $sleep
 }
 
@@ -373,17 +373,17 @@ if ($createUser -eq $true) {
 	Set-ProgressBar "Checking User Details"
 	if (![boolean](Get-LocalUser -Name $scanUser -ErrorAction SilentlyContinue)) {
 		Set-ProgressBar "Creating New User"
-		New-LocalUser -Name $scanUser -Password $($scanPass | ConvertTo-SecureString -AsPlainText -Force) -Description "$description`nPassword: $scanPass" -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword -FullName "scans" | Out-Null;
+		New-LocalUser -Name $scanUser -Password $($scanPass | ConvertTo-SecureString -AsPlainText -Force) -Description "$description`nPassword: $scanPass" -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword -FullName "scans" | Out-Null
 	}
 	else {
 		Set-ProgressBar "Updating Existing User"
-		Set-LocalUser -Name $scanUser -Password $($scanPass | ConvertTo-SecureString -AsPlainText -Force) -Description "$description`nPassword: $scanPass" -AccountNeverExpires -PasswordNeverExpires $true -UserMayChangePassword $false -FullName "scans" | Out-Null;
+		Set-LocalUser -Name $scanUser -Password $($scanPass | ConvertTo-SecureString -AsPlainText -Force) -Description "$description`nPassword: $scanPass" -AccountNeverExpires -PasswordNeverExpires $true -UserMayChangePassword $false -FullName "scans" | Out-Null
 	}
 }
 if ($hideUser -eq $true) {
 	# Hide scans account from login screen on non domain joined computers
 	$path = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\Userlist'
-	$hideAccount = Get-ItemProperty -path $path -name $scanUser -ErrorAction SilentlyContinue;
+	$hideAccount = Get-ItemProperty -Path $path -Name $scanUser -ErrorAction SilentlyContinue
 	if ($? -and $hideAccount.($scanUser) -eq 0) {
 		Set-ProgressBar "User account is already hidden from login screen"
 	}
@@ -391,9 +391,9 @@ if ($hideUser -eq $true) {
 		Set-ProgressBar "Hiding scans user from login screen"
 		if (!(Test-Path $path)) {
 			Write-Verbose "Creating Registry Object at $path"
-			New-Item -Path $path -Force | Out-Null;
+			New-Item -Path $path -Force | Out-Null
 		}
-		New-ItemProperty -path $path -name $scanUser -value 0 -PropertyType 'DWord' -Force | Out-Null;
+		New-ItemProperty -Path $path -Name $scanUser -Value 0 -PropertyType 'DWord' -Force | Out-Null
 	}
 	else {
 		Set-ProgressBar "Computer is domain joined, continuing"
@@ -404,7 +404,7 @@ if ($createFolder -eq $true) {
 	# Check if scans folder exists, create if missing
 	if (!(Test-Path -Path $folderPath)) {
 		Set-ProgressBar "Creating scans folder" 200
-		New-Item -Path $($folderPath.Split(':')[0] + ':/') -Name $folderPath.Split(':')[1] -ItemType Directory | Out-Null;
+		New-Item -Path $($folderPath.Split(':')[0] + ':/') -Name $folderPath.Split(':')[1] -ItemType Directory | Out-Null
 		#Check if creating folder was successful $? = Was last command successful?(T/F)
 		if ($?) {
 			Write-Verbose "New folder created at $folderPath."
@@ -439,25 +439,25 @@ if ($setShare -eq $true) {
 	# Check if scans share exists, create if missing
 	if (!((Get-SmbShare).Name).toLower().Contains($shareName)) {
 		Set-ProgressBar "Creating SMB share"
-		New-SmbShare -Name $shareName -Path $folderPath -FullAccess $scanUser | Out-Null;
+		New-SmbShare -Name $shareName -Path $folderPath -FullAccess $scanUser | Out-Null
 	}
 	else {
 		Set-ProgressBar "Updating SMB share permissions"
-		Grant-SmbShareAccess -Name $shareName -AccountName $scanUser -AccessRight Full -Force | Out-Null;
+		Grant-SmbShareAccess -Name $shareName -AccountName $scanUser -AccessRight Full -Force | Out-Null
 	}
 }
 
 if ($createShortcut -eq $true) {
 	# Create scan folder desktop shortcut
-	Set-ProgressBar "Creating Desktop Shortcut";
-	$shortcutPath = "C:\Users\Public\Desktop\Scans.lnk";
-	$iconPath = 'C:\ProgramData\scans.ico';
-	$shellObject = New-Object -ComObject ("WScript.Shell");
-	$desktopShortCut = $shellObject.CreateShortcut($shortcutPath);
-	$desktopShortCut.TargetPath = $folderPath;
-	$desktopShortCut.IconLocation = $iconPath;
-	$desktopShortCut.Description = $description;
-	$desktopShortCut.Save() | Out-Null;
+	Set-ProgressBar "Creating Desktop Shortcut"
+	$shortcutPath = "C:\Users\Public\Desktop\Scans.lnk"
+	$iconPath = 'C:\ProgramData\scans.ico'
+	$shellObject = New-Object -ComObject ("WScript.Shell")
+	$desktopShortCut = $shellObject.CreateShortcut($shortcutPath)
+	$desktopShortCut.TargetPath = $folderPath
+	$desktopShortCut.IconLocation = $iconPath
+	$desktopShortCut.Description = $description
+	$desktopShortCut.Save() | Out-Null
 }
 
 if ($checkNetworkSettings -eq $true) {
@@ -501,10 +501,10 @@ if ($checkNetworkSettings -eq $true) {
 }
 
 Set-ProgressBar "Finished" 0
-$loadingForm.Close() | Out-Null;
-createLoadingForm $true;
-$loadingForm.ShowDialog() | Out-Null;
+$loadingForm.Close() | Out-Null
+createLoadingForm $true
+$loadingForm.ShowDialog() | Out-Null
 if ($done -eq [System.Windows.Forms.DialogResult]::OK) {
-	$loadingForm.Close() | Out-Null;
-	Exit;
+	$loadingForm.Close() | Out-Null
+	Exit 0
 }
