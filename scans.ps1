@@ -9,6 +9,7 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.Web
+Add-Type -AssemblyName PresentationFramework
 $ProgressPreference = 'SilentlyContinue'
 
 $createUser = $true
@@ -163,6 +164,15 @@ function New-SettingsPage ($test) {
 			}
 		}
 	)
+
+	# Create an OK button and add it to the form
+	$okButton = New-Object System.Windows.Forms.Button
+	$okButton.Location = New-Object System.Drawing.Point (150, 120)
+	$okButton.Size = New-Object System.Drawing.Size (75, 23)
+	$okButton.Text = 'OK'
+	$okButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
+	$settings.AcceptButton = $okButton
+	$settings.Controls.Add($okButton)
 
 	# Add checkbox to form
 	$settings.Controls.Add($createUserCheckbox)
@@ -337,8 +347,8 @@ function createLoadingForm($done) {
 
 	# Create a done button and add it to the form
 	$doneButton = New-Object System.Windows.Forms.Button
-	$doneButton.Location = New-Object System.Drawing.Point (95, 125)
-	$doneButton.Size = New-Object System.Drawing.Size (100, 23)
+	$doneButton.Location = New-Object System.Drawing.Point (150, 125)
+	$doneButton.Size = New-Object System.Drawing.Size (75, 23)
 	$doneButton.Text = 'Done'
 	if ($done -eq $true) {
 		$doneButton.Enabled = $true
@@ -349,6 +359,23 @@ function createLoadingForm($done) {
 	$doneButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
 	$loadingForm.AcceptButton = $doneButton
 	$loadingForm.Controls.Add($doneButton)
+	
+	# Create an OK button and add it to the form
+	$copyPasswordButton = New-Object System.Windows.Forms.Button
+	$copyPasswordButton.Location = New-Object System.Drawing.Point (50, 125)
+	$copyPasswordButton.Size = New-Object System.Drawing.Size (100, 23)
+	$copyPasswordButton.Text = 'Copy Password'
+	if ($done -eq $true -and $createUser -eq $true) {
+		$copyPasswordButton.Enabled = $true
+	}
+ 	else {
+		$copyPasswordButton.Enabled = $false
+	}
+	$copyPasswordButton.Add_Click({
+		Set-Clipboard -Value $scanPass
+		[System.Windows.MessageBox]::Show('Password has been copied to Clipboard')
+	})
+	$loadingForm.Controls.Add($copyPasswordButton)
 }
 $null = createLoadingForm $false
 $loadingForm.Show()
@@ -464,39 +491,60 @@ if ($checkNetworkSettings -eq $true) {
 	# Set network profile to Private if not domain joined.
 	$networkCategory = (Get-NetConnectionProfile).NetworkCategory
 	if (!$domainJoined -and $networkCategory -ne 'Private') {
-		Set-ProgressBar "Set Network Category to Private"
-		Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory Private
+		try {
+			Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory Private
+			Set-ProgressBar "Set Network Category to Private"
+		}
+		catch {
+			Set-ProgressBar "Failed to Set Network Category to Private"
+		}
 	}
 	elseif ($domainJoined -and $networkCategory -ne 'DomainAuthenticated') {
-		Set-ProgressBar "Set Network Category to Domain Authenticated"
-		Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory DomainAuthenticated
+		try {
+			Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory DomainAuthenticated
+			Set-ProgressBar "Set Network Category to Domain Authenticated"
+		}
+		catch {
+			Set-ProgressBar "Failed to Set Network Category to Domain Authenticated"
+		}
 	}
 	else {
 		Set-ProgressBar "Network Category is already $networkCategory"
-	}
+	} 
+
+	# Check network category again in case it was changed
+	$networkCategory = (Get-NetConnectionProfile).NetworkCategory
 
 	# Check if network file and printer sharing is enabled
-	$sharingEnabled = Get-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound | Where-Object { $_.Enabled -eq 'True' }
+	$sharingEnabled = Get-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound | Where-Object { $_.Enabled -eq 'True' -and $_.Profile -eq $networkCategory.ToString() }
 
-	if (!$sharingEnabled) {
-		# If not enabled, enable it
-		Set-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound -Enabled True -Profile $networkCategory
-		Set-ProgressBar "Network file and printer sharing has been enabled."
+	if ($sharingEnabled.count -eq 0) {
+		try {
+			Set-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound -Enabled True -Profile $networkCategory.ToString()
+			Set-ProgressBar "Network file and printer sharing has been enabled."
+		}
+		catch {
+			Set-ProgressBar "Failed to enable Network File and Printer Sharing."
+		}
 	}
 	else {
-		Set-ProgressBar "Network file and printer sharing is already enabled."
+		Set-ProgressBar "Network File and Printer Sharing is already enabled."
 	}
 
 	# Check if network discovery is enabled
-	$discoveryEnabled = Get-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound | Where-Object { $_.Enabled -eq 'True' }
+	$discoveryEnabled = Get-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound | Where-Object { $_.Enabled -eq 'True' -and $_.Profile -eq $networkCategory.ToString() }
 
-	if (!$discoveryEnabled) {
-		# If not enabled, enable it
-		Set-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound -Enabled True -Profile $networkCategory
-		Set-ProgressBar "Network discovery has been enabled."
+	if ($discoveryEnabled.count -eq 0) {
+		try {
+			Set-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound -Enabled True -Profile $networkCategory.ToString()
+			Set-ProgressBar "Network Discovery has been enabled."
+		}
+		catch {
+			Set-ProgressBar "Failed to Enable Network Discovery."
+		}
 	}
 	else {
-		Set-ProgressBar "Network discovery is already enabled."
+		Set-ProgressBar "Network Discovery is already enabled."
 	}
 }
 
