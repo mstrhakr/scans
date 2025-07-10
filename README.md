@@ -7,7 +7,7 @@ Either run the exe found in releases or paste the following into an admin powers
 irm https://raw.githubusercontent.com/mstrhakr/scans/main/scans.ps1 | iex
 ```
 
-The exe is compiled with PS2EXE from the source available here.
+The exe is compiled with PS2EXE from the source available ![here](https://github.com/MScholtes/PS2EXE).
 
 This script completely setups the user environment to allow a quick scan to SMB setup
 
@@ -19,6 +19,8 @@ This includes:
 - Setting SMB permissions for the SMB share
 - Creating a desktop shortcut to the scans folder
 - Setting the Network Category to Private
+- Enable File and Folder Sharing
+- Enable Network Discovery
 
 All you have to do is run scans.exe and follow the prompts, it's as easy as that.
 
