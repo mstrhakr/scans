@@ -289,7 +289,7 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
 	$script:scanPass = $scanPassTextBox.Text
 	$script:folderPath = $folderPathTextBox.Text
 	$script:shareName = $smbShareTextBox.Text
-	Write-Verbose "Username: $script:username`nPassword: $script:password`nLocal Dir: $script:folderPath`nSMB Share: $script:shareName"
+	Write-Verbose "Username: $script:scanUser `nPassword: $script:scanPass `nLocal Dir: $script:folderPath`nSMB Share: $script:shareName"
 }
 else {
 	Write-Verbose "User canceled scanning setup"
@@ -304,7 +304,7 @@ function createLoadingForm($done) {
 	if ($done -eq $true) {
 		$script:loadingForm.Text = 'Scans.exe - ' + $script:details[0]
 	}
- else {
+ 	else {
 		$script:loadingForm.Text = 'Scans.exe - Loading...'
 	}
 	$script:loadingForm.Icon = $iconPath
@@ -318,7 +318,7 @@ function createLoadingForm($done) {
 	if ($done -eq $true) {
 		$script:loadingText.Text = $script:details[0]
 	}
- else {
+ 	else {
 		$script:loadingText.Text = 'Loading...'
 	}
 	$script:loadingForm.Controls.Add($script:loadingText)
@@ -330,7 +330,7 @@ function createLoadingForm($done) {
 	if ($done -eq $true) {
 		$script:progrssBarObject.Value = $script:progrssBarObject.Maximum
 	}
- else {
+ 	else {
 		$script:progrssBarObject.Value = 0
 	}
 	$script:loadingForm.Controls.Add($script:progrssBarObject)
@@ -353,7 +353,7 @@ function createLoadingForm($done) {
 	if ($done -eq $true) {
 		$doneButton.Enabled = $true
 	}
- else {
+ 	else {
 		$doneButton.Enabled = $false
 	}
 	$doneButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
@@ -373,6 +373,7 @@ function createLoadingForm($done) {
 	}
 	$copyPasswordButton.Add_Click({
 		Set-Clipboard -Value $scanPass
+		Write-Verbose "Copied scan password to clipboard: $scanPass"
 		[System.Windows.MessageBox]::Show('Password has been copied to Clipboard')
 	})
 	$loadingForm.Controls.Add($copyPasswordButton)
@@ -380,13 +381,14 @@ function createLoadingForm($done) {
 $null = createLoadingForm $false
 $loadingForm.Show()
 $percent = 0
-function Set-ProgressBar($text, $sleep = 500) {
+function Set-ProgressBar($text, $sleep = 250) {
 	$script:loadingText.Text = $text
 	$script:percent += 1
 	$script:progrssBarObject.Value = $script:percent
 	$script:details.Insert(0, $text) | Out-Null
 	$script:text = $text
 	$script:detailsBox.Items.Insert(0, $text) | Out-Null
+	Write-Verbose  "Progress Text: $text"
 	Start-Sleep -Milliseconds $sleep
 }
 
