@@ -1,13 +1,11 @@
 # **Scanning Setup Utility**
 ## The Basics
 
-Either run the exe found in releases or paste the following into an admin powershell window.
+To run, paste the following into an admin powershell window.
 
 ``` powershell
 irm https://raw.githubusercontent.com/mstrhakr/scans/main/scans.ps1 | iex
 ```
-
-The exe is compiled with PS2EXE from the source available ![here](https://github.com/MScholtes/PS2EXE).
 
 This script completely setups the user environment to allow a quick scan to SMB setup
 
@@ -22,7 +20,7 @@ This includes:
 - Enable File and Folder Sharing
 - Enable Network Discovery
 
-All you have to do is run scans.exe and follow the prompts, it's as easy as that.
+All you have to do is follow the prompts, it's as easy as that.
 
 First choose the inputs, the password is randomly generated at 10 characters long.
 
@@ -39,5 +37,3 @@ Then wait for the utility to complete all the required changes to your system.
 When the utility is finished, click 'Done' to close the window.
 
 ![Finished](img/scans-finished.png)
-
-> Note: You must disable Real-Time Scanning in your AV software to run this utility via the scans.exe available in the releases section
