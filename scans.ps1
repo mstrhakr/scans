@@ -216,7 +216,7 @@ $scanPassTextBox = New-Object System.Windows.Forms.TextBox
 $scanPassTextBox.Location = New-Object System.Drawing.Point (80, 35)
 $scanPassTextBox.Size = New-Object System.Drawing.Size (190, 20)
 # Generate a random password using PowerShell native methods
-$chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+$chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*+-=?"
 $password = -join ((1..10) | ForEach-Object { $chars[(Get-Random -Maximum $chars.Length)] })
 $scanPassTextBox.Text = $password
 $scanningSetupForm.Controls.Add($scanPassTextBox)
