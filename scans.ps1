@@ -215,7 +215,10 @@ $scanningSetupForm.Controls.Add($scanPassLabel)
 $scanPassTextBox = New-Object System.Windows.Forms.TextBox
 $scanPassTextBox.Location = New-Object System.Drawing.Point (80, 35)
 $scanPassTextBox.Size = New-Object System.Drawing.Size (190, 20)
-$scanPassTextBox.Text = [System.Web.Security.Membership]::GeneratePassword(10, 0)
+# Generate a random password using PowerShell native methods
+$chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+$password = -join ((1..10) | ForEach-Object { $chars[(Get-Random -Maximum $chars.Length)] })
+$scanPassTextBox.Text = $password
 $scanningSetupForm.Controls.Add($scanPassTextBox)
 
 # Create a text box for the user to choose a custom path
@@ -226,9 +229,26 @@ $folderPathLabel.Text = 'Local Dir:'
 $scanningSetupForm.Controls.Add($folderPathLabel)
 $folderPathTextBox = New-Object System.Windows.Forms.TextBox
 $folderPathTextBox.Location = New-Object System.Drawing.Point (80, 60)
-$folderPathTextBox.Size = New-Object System.Drawing.Size (190, 20)
+$folderPathTextBox.Size = New-Object System.Drawing.Size (160, 20)
 $folderPathTextBox.Text = $folderPath
 $scanningSetupForm.Controls.Add($folderPathTextBox)
+
+# Create browse button for folder path
+$browseButton = New-Object System.Windows.Forms.Button
+$browseButton.Location = New-Object System.Drawing.Point (245, 59)
+$browseButton.Size = New-Object System.Drawing.Size (25, 22)
+$browseButton.Text = '...'
+$browseButton.Add_Click({
+	$folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
+	$folderBrowser.Description = "Select folder for scans"
+	$folderBrowser.SelectedPath = $folderPathTextBox.Text
+	$folderBrowser.ShowNewFolderButton = $true
+	
+	if ($folderBrowser.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+		$folderPathTextBox.Text = $folderBrowser.SelectedPath
+	}
+})
+$scanningSetupForm.Controls.Add($browseButton)
 
 # Create a text box for the user to choose a smb share
 $smbShareLabel = New-Object	System.Windows.Forms.Label
