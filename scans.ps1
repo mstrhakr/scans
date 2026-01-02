@@ -3,7 +3,7 @@
 [string]$scanPass = 'scans'
 [string]$folderPath = 'C:\scans'
 [string]$shareName = 'scans'
-[string]$description = 'Scanning setup by PSP.'
+[string]$description = 'Scans tool provided by mstrhakr on Github.'
 
 # Load the .NET Framework classes
 Add-Type -AssemblyName System.Windows.Forms
