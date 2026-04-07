@@ -571,15 +571,9 @@ if ($createFolder -eq $true) {
 }
 
 if ($setShare -eq $true) {
-	# Check if scans share exists, create if missing
-	if (!((Get-SmbShare).Name).toLower().Contains($shareName)) {
-		Set-ProgressBar "Creating SMB share"
-		New-SmbShare -Name $shareName -Path $folderPath -FullAccess $scanUser | Out-Null
-	}
-	else {
-		Set-ProgressBar "Updating SMB share permissions"
-		Grant-SmbShareAccess -Name $shareName -AccountName $scanUser -AccessRight Full -Force | Out-Null
-	}
+	$shareResult = Initialize-ScanShare -ShareName $shareName -FolderPath $folderPath -ScanUser $scanUser
+	Set-ProgressBar $shareResult.Message
+	if ($shareResult.Error) { Set-ProgressBar "  Error: $($shareResult.Error)" 0 }
 }
 
 if ($createShortcut -eq $true) {
