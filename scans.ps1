@@ -38,12 +38,11 @@ $script:Remediation = @{
 $currentPrincipal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
 if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
 	try {
-		# When run via irm|iex $PSCommandPath is empty; save script to temp and re-launch elevated
+		# When run via irm|iex $PSCommandPath is empty; dump ourselves to temp and re-launch elevated
 		$scriptPath = $PSCommandPath
 		if (-not $scriptPath) {
 			$scriptPath = "$env:TEMP\scans.ps1"
-			[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-			Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/scans.ps1' -OutFile $scriptPath -ErrorAction Stop | Out-Null
+			[IO.File]::WriteAllText($scriptPath, $MyInvocation.MyCommand.ScriptBlock.ToString(), [Text.Encoding]::UTF8)
 		}
 		Start-Process -FilePath 'powershell.exe' -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`"" -Verb RunAs
 	} catch {
