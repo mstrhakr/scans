@@ -317,6 +317,14 @@ else {
 	Exit 1
 }
 $details = New-Object System.Collections.ArrayList
+$script:progressMax = 2
+if ($createUser) { $script:progressMax += 2 }
+if ($hideUser) { $script:progressMax += 1 }
+if ($createFolder) { $script:progressMax += 1 }
+if ($setPermissions) { $script:progressMax += 1 }
+if ($setShare) { $script:progressMax += 1 }
+if ($createShortcut) { $script:progressMax += 1 }
+if ($checkNetworkSettings) { $script:progressMax += 3 }
 function createLoadingForm($done) {
 	# Create a new form with a title and a size
 	$script:loadingForm = New-Object System.Windows.Forms.Form
@@ -342,18 +350,18 @@ function createLoadingForm($done) {
 		$script:loadingText.Text = 'Loading...'
 	}
 	$script:loadingForm.Controls.Add($script:loadingText)
-	$script:progrssBarObject = New-Object System.Windows.Forms.ProgressBar
-	$script:progrssBarObject.Location = New-Object System.Drawing.Point (10, 30)
-	$script:progrssBarObject.Size = New-Object System.Drawing.Size (265, 20)
-	$script:progrssBarObject.Minimum = 0
-	$script:progrssBarObject.Maximum = 12
+	$script:progressBarObject = New-Object System.Windows.Forms.ProgressBar
+	$script:progressBarObject.Location = New-Object System.Drawing.Point (10, 30)
+	$script:progressBarObject.Size = New-Object System.Drawing.Size (265, 20)
+	$script:progressBarObject.Minimum = 0
+	$script:progressBarObject.Maximum = $script:progressMax
 	if ($done -eq $true) {
-		$script:progrssBarObject.Value = $script:progrssBarObject.Maximum
+		$script:progressBarObject.Value = $script:progressBarObject.Maximum
 	}
  	else {
-		$script:progrssBarObject.Value = 0
+		$script:progressBarObject.Value = 0
 	}
-	$script:loadingForm.Controls.Add($script:progrssBarObject)
+	$script:loadingForm.Controls.Add($script:progressBarObject)
 	$script:detailsBox = New-Object System.Windows.Forms.ListBox
 	$script:detailsBox.ScrollAlwaysVisible = $true
 	$script:detailsBox.Location = New-Object System.Drawing.Point (10, 60)
@@ -404,7 +412,7 @@ $percent = 0
 function Set-ProgressBar($text, $sleep = 250) {
 	$script:loadingText.Text = $text
 	$script:percent += 1
-	$script:progrssBarObject.Value = $script:percent
+	$script:progressBarObject.Value = [Math]::Min($script:percent, $script:progressMax)
 	$script:details.Insert(0, $text) | Out-Null
 	$script:text = $text
 	$script:detailsBox.Items.Insert(0, $text) | Out-Null
