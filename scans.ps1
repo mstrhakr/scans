@@ -241,15 +241,19 @@ function Initialize-ScanUser {
 			}
 		}
 		else {
-			$existingUser = net user $Username 2>&1
+			# Sanitize inputs for external commands to prevent injection
+			$safeUser = $Username -replace '[^a-zA-Z0-9_\-]', ''
+			$safePass = $Password -replace '"', ''
+			$safeDesc = $Description -replace '"', ''
+			$existingUser = net user $safeUser 2>&1
 			if ($LASTEXITCODE -ne 0) {
-				net user $Username $Password /add /fullname:"scans" /comment:"$Description" /active:yes /expires:never /passwordchg:no | Out-Null
+				net user $safeUser $safePass /add /fullname:"scans" /comment:"$safeDesc" /active:yes /expires:never /passwordchg:no | Out-Null
 				# Set password to never expire via wmic
-				wmic useraccount where "Name='$Username'" set PasswordExpires=FALSE 2>&1 | Out-Null
+				wmic useraccount where "Name='$safeUser'" set PasswordExpires=FALSE 2>&1 | Out-Null
 				$results += @{ Status = 'Success'; Message = "Created new user '$Username' (net user)"; Error = $null }
 			}
 			else {
-				net user $Username $Password /comment:"$Description" | Out-Null
+				net user $safeUser $safePass /comment:"$safeDesc" | Out-Null
 				$results += @{ Status = 'Success'; Message = "Updated existing user '$Username' (net user)"; Error = $null }
 			}
 		}
