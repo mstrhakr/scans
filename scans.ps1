@@ -11,6 +11,44 @@ Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName PresentationFramework
 $ProgressPreference = 'SilentlyContinue'
 
+# --- Error popup helper ---
+function Show-ErrorAndExit {
+	param(
+		[string]$Title,
+		[string]$Message,
+		[string]$Remediation
+	)
+	$body = "$Message`n`nHow to fix:`n$Remediation"
+	[System.Windows.MessageBox]::Show($body, $Title, 'OK', 'Error') | Out-Null
+	Exit 1
+}
+
+# --- Common error remediation messages ---
+$script:Remediation = @{
+	NotAdmin       = "Right-click start button and select 'Powershell/Terminal (Admin)'."
+	NoInternet     = "Check your network connection and ensure you can reach github.com.`nIf behind a proxy, configure your system proxy settings."
+	OldPowerShell  = "Install Windows Management Framework 3.0 or later from:`nhttps://www.microsoft.com/en-us/download/details.aspx?id=54616"
+	TrustRelation  = "The domain trust is broken. Run the following from an admin prompt:`nTest-ComputerSecureChannel -Repair -Credential (Get-Credential)`nOr rejoin the machine to the domain."
+	AccessDenied   = "The current user does not have permission. Ensure you are running as Administrator and the folder is not read-only."
+	ShareInUse     = "Close any open files or Explorer windows pointing to the share, then try again."
+}
+
+# --- Preflight checks ---
+# 1. Require Administrator
+$currentPrincipal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
+if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+	Show-ErrorAndExit -Title 'Administrator Required' `
+		-Message 'This script must be run as Administrator to create users, shares, and configure network settings.' `
+		-Remediation $script:Remediation.NotAdmin
+}
+
+# 2. Require PowerShell 3.0+
+if ($PSVersionTable.PSVersion.Major -lt 3) {
+	Show-ErrorAndExit -Title 'PowerShell Version Too Old' `
+		-Message "This script requires PowerShell 3.0 or later. You are running $($PSVersionTable.PSVersion)." `
+		-Remediation $script:Remediation.OldPowerShell
+}
+
 # Detect OS capabilities for legacy fallback
 $script:osVersion = [Environment]::OSVersion.Version
 $script:hasLocalAccounts = [bool](Get-Command -Name 'Get-LocalUser' -ErrorAction SilentlyContinue)
@@ -301,7 +339,14 @@ function Set-NetworkConfiguration {
 # Download icon (skip if already cached to avoid file-lock on re-run)
 $iconPath = 'C:\ProgramData\scans.ico'
 if (!(Test-Path $iconPath)) {
-	Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/img/scans.ico' -OutFile $iconPath | Out-Null
+	try {
+		Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/img/scans.ico' -OutFile $iconPath -ErrorAction Stop | Out-Null
+	}
+	catch {
+		Show-ErrorAndExit -Title 'Download Failed' `
+			-Message "Could not download the application icon.`n`n$($_.Exception.Message)" `
+			-Remediation $script:Remediation.NoInternet
+	}
 }
 $script:iconUri = [Uri]::new($iconPath)
 
@@ -477,6 +522,17 @@ $script:progressWindow.FindName('btnDone').Add_Click({
 
 $script:progressWindow.Show()
 $percent = 0
+$script:hasErrors = $false
+
+function Get-ErrorRemediation([string]$errorText) {
+	switch -Regex ($errorText) {
+		'trust relationship'        { return $script:Remediation.TrustRelation }
+		'Access is denied|access denied|UnauthorizedAccess' { return $script:Remediation.AccessDenied }
+		'share.*in use|being used'  { return $script:Remediation.ShareInUse }
+		default { return $null }
+	}
+}
+
 function Set-ProgressBar($text, $sleep = 250) {
 	$script:progressWindow.FindName('txtStatus').Text = $text
 	$script:percent += 1
@@ -486,6 +542,16 @@ function Set-ProgressBar($text, $sleep = 250) {
 	Write-Verbose "Progress Text: $text"
 	[System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
 	Start-Sleep -Milliseconds $sleep
+}
+
+function Show-StepResult($result) {
+	Set-ProgressBar $result.Message
+	if ($result.Error) {
+		$script:hasErrors = $true
+		Set-ProgressBar "  Error: $($result.Error)" 0
+		$tip = Get-ErrorRemediation $result.Error
+		if ($tip) { Set-ProgressBar "  Tip: $tip" 0 }
+	}
 }
 
 # Gather computer details
@@ -501,49 +567,41 @@ $domainJoined = $computerDetails.PartOfDomain
 # Create/update scans user account and hide from login screen
 if ($createUser -eq $true) {
 	$userResults = Initialize-ScanUser -Username $scanUser -Password $scanPass -Description $description -HideFromLogin $hideUser -DomainJoined $domainJoined
-	foreach ($r in $userResults) {
-		Set-ProgressBar $r.Message
-		if ($r.Error) { Set-ProgressBar "  Error: $($r.Error)" 0 }
-	}
+	foreach ($r in $userResults) { Show-StepResult $r }
 }
 elseif ($hideUser -eq $true) {
 	$userResults = Initialize-ScanUser -Username $scanUser -Password $scanPass -Description $description -HideFromLogin $true -DomainJoined $domainJoined
-	foreach ($r in $userResults) {
-		Set-ProgressBar $r.Message
-		if ($r.Error) { Set-ProgressBar "  Error: $($r.Error)" 0 }
-	}
+	foreach ($r in $userResults) { Show-StepResult $r }
 }
 
 if ($createFolder -eq $true) {
 	$folderResults = Initialize-ScanFolder -FolderPath $folderPath -ScanUser $scanUser -SetPermissions $setPermissions -DomainJoined $domainJoined
-	foreach ($r in $folderResults) {
-		Set-ProgressBar $r.Message
-		if ($r.Error) { Set-ProgressBar "  Error: $($r.Error)" 0 }
-	}
+	foreach ($r in $folderResults) { Show-StepResult $r }
 }
 
 if ($setShare -eq $true) {
 	$shareResult = Initialize-ScanShare -ShareName $shareName -FolderPath $folderPath -ScanUser $scanUser
-	Set-ProgressBar $shareResult.Message
-	if ($shareResult.Error) { Set-ProgressBar "  Error: $($shareResult.Error)" 0 }
+	Show-StepResult $shareResult
 }
 
 if ($createShortcut -eq $true) {
 	$shortcutResult = Initialize-DesktopShortcut -FolderPath $folderPath -IconPath $iconPath -Description $description
-	Set-ProgressBar $shortcutResult.Message
-	if ($shortcutResult.Error) { Set-ProgressBar "  Error: $($shortcutResult.Error)" 0 }
+	Show-StepResult $shortcutResult
 }
 
 if ($checkNetworkSettings -eq $true) {
 	$netResults = Set-NetworkConfiguration -DomainJoined $domainJoined
-	foreach ($r in $netResults) {
-		Set-ProgressBar $r.Message
-		if ($r.Error) { Set-ProgressBar "  Error: $($r.Error)" 0 }
-	}
+	foreach ($r in $netResults) { Show-StepResult $r }
 }
 
 Set-ProgressBar "Finished" 0
-$script:progressWindow.Title = 'Scans Setup - Finished'
+if ($script:hasErrors) {
+	$script:progressWindow.Title = 'Scans Setup - Completed with errors'
+	$script:progressWindow.FindName('txtStatus').Text = 'Completed with errors (see details above)'
+}
+else {
+	$script:progressWindow.Title = 'Scans Setup - Finished'
+}
 $script:progressWindow.FindName('btnDone').IsEnabled = $true
 if ($createUser) { $script:progressWindow.FindName('btnCopyPassword').IsEnabled = $true }
 [System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
