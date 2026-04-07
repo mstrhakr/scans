@@ -216,7 +216,12 @@ $checkNetworkSettings = $true
 function New-RandomPassword {
 	param([int]$Length = 10)
 	$chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*+-=?'
-	return -join ((1..$Length) | ForEach-Object { $chars[(Get-Random -Maximum $chars.Length)] })
+	$rng = [System.Security.Cryptography.RNGCryptoServiceProvider]::new()
+	$bytes = [byte[]]::new($Length)
+	$rng.GetBytes($bytes)
+	$result = -join ((0..($Length - 1)) | ForEach-Object { $chars[[int]($bytes[$_] % $chars.Length)] })
+	$rng.Dispose()
+	return $result
 }
 
 function Initialize-ScanUser {
