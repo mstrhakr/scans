@@ -483,7 +483,7 @@ function Set-ProgressBar($text, $sleep = 250) {
 	$script:progressWindow.FindName('progressBar').Value = [Math]::Min($script:percent, $script:progressMax)
 	$script:details.Insert(0, $text) | Out-Null
 	$script:progressWindow.FindName('lstDetails').Items.Insert(0, $text) | Out-Null
-	Write-Host $text
+	Write-Verbose "Progress Text: $text"
 	[System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
 	Start-Sleep -Milliseconds $sleep
 }
