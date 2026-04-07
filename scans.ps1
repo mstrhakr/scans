@@ -43,15 +43,30 @@ function Initialize-ScanUser {
 		[bool]$DomainJoined
 	)
 	$results = @()
-	$securePass = $Password | ConvertTo-SecureString -AsPlainText -Force
 	try {
-		if (![boolean](Get-LocalUser -Name $Username -ErrorAction SilentlyContinue)) {
-			New-LocalUser -Name $Username -Password $securePass -Description $Description -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword -FullName "scans" | Out-Null
-			$results += @{ Status = 'Success'; Message = "Created new user '$Username'"; Error = $null }
+		if ($script:hasLocalAccounts) {
+			$securePass = $Password | ConvertTo-SecureString -AsPlainText -Force
+			if (![boolean](Get-LocalUser -Name $Username -ErrorAction SilentlyContinue)) {
+				New-LocalUser -Name $Username -Password $securePass -Description $Description -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword -FullName "scans" | Out-Null
+				$results += @{ Status = 'Success'; Message = "Created new user '$Username'"; Error = $null }
+			}
+			else {
+				Set-LocalUser -Name $Username -Password $securePass -Description $Description | Out-Null
+				$results += @{ Status = 'Success'; Message = "Updated existing user '$Username'"; Error = $null }
+			}
 		}
 		else {
-			Set-LocalUser -Name $Username -Password $securePass -Description $Description | Out-Null
-			$results += @{ Status = 'Success'; Message = "Updated existing user '$Username'"; Error = $null }
+			$existingUser = net user $Username 2>&1
+			if ($LASTEXITCODE -ne 0) {
+				net user $Username $Password /add /fullname:"scans" /comment:"$Description" /active:yes /expires:never /passwordchg:no | Out-Null
+				# Set password to never expire via wmic
+				wmic useraccount where "Name='$Username'" set PasswordExpires=FALSE 2>&1 | Out-Null
+				$results += @{ Status = 'Success'; Message = "Created new user '$Username' (net user)"; Error = $null }
+			}
+			else {
+				net user $Username $Password /comment:"$Description" | Out-Null
+				$results += @{ Status = 'Success'; Message = "Updated existing user '$Username' (net user)"; Error = $null }
+			}
 		}
 	}
 	catch {
