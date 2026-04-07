@@ -164,6 +164,64 @@ function Initialize-DesktopShortcut {
 	}
 }
 
+function Set-NetworkConfiguration {
+	param([bool]$DomainJoined)
+	$results = @()
+
+	# Set network profile
+	$networkProfile = Get-NetConnectionProfile | Select-Object -First 1
+	$networkCategory = $networkProfile.NetworkCategory
+	if (!$DomainJoined -and $networkCategory -ne 'Private') {
+		try {
+			$networkProfile | Set-NetConnectionProfile -NetworkCategory Private
+			$results += @{ Status = 'Success'; Message = 'Set Network Category to Private'; Error = $null }
+		}
+		catch {
+			$results += @{ Status = 'Failed'; Message = 'Failed to Set Network Category to Private'; Error = $_.Exception.Message }
+		}
+	}
+	elseif ($DomainJoined) {
+		$results += @{ Status = 'Skipped'; Message = 'Network Category is managed by domain, skipping'; Error = $null }
+	}
+	else {
+		$results += @{ Status = 'Success'; Message = "Network Category is already $networkCategory"; Error = $null }
+	}
+
+	# Re-read after possible change
+	$networkCategory = (Get-NetConnectionProfile | Select-Object -First 1).NetworkCategory
+
+	# File and Printer Sharing
+	$sharingEnabled = Get-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound | Where-Object { $_.Enabled -eq 'True' -and $_.Profile -eq $networkCategory.ToString() }
+	if ($sharingEnabled.count -eq 0) {
+		try {
+			Set-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound -Enabled True -Profile $networkCategory.ToString()
+			$results += @{ Status = 'Success'; Message = 'Network file and printer sharing has been enabled.'; Error = $null }
+		}
+		catch {
+			$results += @{ Status = 'Failed'; Message = 'Failed to enable Network File and Printer Sharing.'; Error = $_.Exception.Message }
+		}
+	}
+	else {
+		$results += @{ Status = 'Success'; Message = 'Network File and Printer Sharing is already enabled.'; Error = $null }
+	}
+
+	# Network Discovery
+	$discoveryEnabled = Get-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound | Where-Object { $_.Enabled -eq 'True' -and $_.Profile -eq $networkCategory.ToString() }
+	if ($discoveryEnabled.count -eq 0) {
+		try {
+			Set-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound -Enabled True -Profile $networkCategory.ToString()
+			$results += @{ Status = 'Success'; Message = 'Network Discovery has been enabled.'; Error = $null }
+		}
+		catch {
+			$results += @{ Status = 'Failed'; Message = 'Failed to Enable Network Discovery.'; Error = $_.Exception.Message }
+		}
+	}
+	else {
+		$results += @{ Status = 'Success'; Message = 'Network Discovery is already enabled.'; Error = $null }
+	}
+	return $results
+}
+
 # Download icon
 $iconPath = 'C:\ProgramData\scans.ico'
 Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/img/scans.ico' -OutFile $iconPath | Out-Null
@@ -604,58 +662,10 @@ if ($createShortcut -eq $true) {
 }
 
 if ($checkNetworkSettings -eq $true) {
-	# Set network profile to Private if not domain joined.
-	$networkProfile = Get-NetConnectionProfile | Select-Object -First 1
-	$networkCategory = $networkProfile.NetworkCategory
-	if (!$domainJoined -and $networkCategory -ne 'Private') {
-		try {
-			$networkProfile | Set-NetConnectionProfile -NetworkCategory Private
-			Set-ProgressBar "Set Network Category to Private"
-		}
-		catch {
-			Set-ProgressBar "Failed to Set Network Category to Private"
-		}
-	}
-	elseif ($domainJoined) {
-		Set-ProgressBar "Network Category is managed by domain, skipping"
-	}
-	else {
-		Set-ProgressBar "Network Category is already $networkCategory"
-	} 
-
-	# Check network category again in case it was changed
-	$networkCategory = (Get-NetConnectionProfile | Select-Object -First 1).NetworkCategory
-
-	# Check if network file and printer sharing is enabled
-	$sharingEnabled = Get-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound | Where-Object { $_.Enabled -eq 'True' -and $_.Profile -eq $networkCategory.ToString() }
-
-	if ($sharingEnabled.count -eq 0) {
-		try {
-			Set-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound -Enabled True -Profile $networkCategory.ToString()
-			Set-ProgressBar "Network file and printer sharing has been enabled."
-		}
-		catch {
-			Set-ProgressBar "Failed to enable Network File and Printer Sharing."
-		}
-	}
-	else {
-		Set-ProgressBar "Network File and Printer Sharing is already enabled."
-	}
-
-	# Check if network discovery is enabled
-	$discoveryEnabled = Get-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound | Where-Object { $_.Enabled -eq 'True' -and $_.Profile -eq $networkCategory.ToString() }
-
-	if ($discoveryEnabled.count -eq 0) {
-		try {
-			Set-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound -Enabled True -Profile $networkCategory.ToString()
-			Set-ProgressBar "Network Discovery has been enabled."
-		}
-		catch {
-			Set-ProgressBar "Failed to Enable Network Discovery."
-		}
-	}
-	else {
-		Set-ProgressBar "Network Discovery is already enabled."
+	$netResults = Set-NetworkConfiguration -DomainJoined $domainJoined
+	foreach ($r in $netResults) {
+		Set-ProgressBar $r.Message
+		if ($r.Error) { Set-ProgressBar "  Error: $($r.Error)" 0 }
 	}
 }
 
