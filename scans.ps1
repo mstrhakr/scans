@@ -533,6 +533,7 @@ function Set-ProgressBar($text, $sleep = 250) {
 	$script:text = $text
 	$script:detailsBox.Items.Insert(0, $text) | Out-Null
 	Write-Verbose  "Progress Text: $text"
+	[System.Windows.Forms.Application]::DoEvents()
 	Start-Sleep -Milliseconds $sleep
 }
 
