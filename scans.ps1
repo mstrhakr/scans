@@ -775,6 +775,7 @@ if ($checkNetworkSettings -eq $true) {
 }
 
 Set-ProgressBar "Finished" 0
+$script:progressWindow.FindName('progressBar').Value = $script:progressMax
 if ($script:hasErrors) {
 	$script:progressWindow.Title = 'Scans Setup - Completed with errors'
 	$script:progressWindow.FindName('txtStatus').Text = 'Completed with errors (see details above)'
