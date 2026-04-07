@@ -38,13 +38,20 @@ $script:Remediation = @{
 $currentPrincipal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
 if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
 	try {
-		Start-Process -FilePath 'powershell.exe' -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
+		# When run via irm|iex $PSCommandPath is empty; save script to temp and re-launch elevated
+		$scriptPath = $PSCommandPath
+		if (-not $scriptPath) {
+			$scriptPath = "$env:TEMP\scans.ps1"
+			[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+			Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/scans.ps1' -OutFile $scriptPath -ErrorAction Stop | Out-Null
+		}
+		Start-Process -FilePath 'powershell.exe' -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`"" -Verb RunAs
 	} catch {
 		Show-ErrorAndExit -Title 'Administrator Required' `
 			-Message 'This script must be run as Administrator to create users, shares, and configure network settings.' `
 			-Remediation $script:Remediation.NotAdmin
 	}
-	Exit 0
+	return
 }
 
 # 2. Require PowerShell 3.0+
@@ -796,4 +803,3 @@ if ($createUser) { $script:progressWindow.FindName('btnCopyPassword').IsEnabled 
 $frame = [System.Windows.Threading.DispatcherFrame]::new()
 $script:progressWindow.Add_Closed({ $frame.Continue = $false })
 [System.Windows.Threading.Dispatcher]::PushFrame($frame)
-Exit 0
