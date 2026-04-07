@@ -522,14 +522,8 @@ if ($checkNetworkSettings -eq $true) {
 			Set-ProgressBar "Failed to Set Network Category to Private"
 		}
 	}
-	elseif ($domainJoined -and $networkCategory -ne 'DomainAuthenticated') {
-		try {
-			Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory DomainAuthenticated
-			Set-ProgressBar "Set Network Category to Domain Authenticated"
-		}
-		catch {
-			Set-ProgressBar "Failed to Set Network Category to Domain Authenticated"
-		}
+	elseif ($domainJoined) {
+		Set-ProgressBar "Network Category is managed by domain, skipping"
 	}
 	else {
 		Set-ProgressBar "Network Category is already $networkCategory"
