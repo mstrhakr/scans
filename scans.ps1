@@ -43,7 +43,9 @@ if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adm
 		# When run via irm|iex $PSCommandPath is empty; dump ourselves to temp and re-launch elevated
 		$scriptPath = $PSCommandPath
 		if (-not $scriptPath) {
-			$scriptPath = "$env:TEMP\scans.ps1"
+			$scriptDir = Join-Path $env:TEMP "scans_$([Guid]::NewGuid().ToString('N').Substring(0,8))"
+			[IO.Directory]::CreateDirectory($scriptDir) | Out-Null
+			$scriptPath = Join-Path $scriptDir 'scans.ps1'
 			$scriptBody = $MyInvocation.MyCommand.ScriptBlock.ToString()
 			if (-not $scriptBody) { throw 'Could not capture script content for elevation.' }
 			[IO.File]::WriteAllText($scriptPath, $scriptBody, [Text.Encoding]::UTF8)
