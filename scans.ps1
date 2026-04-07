@@ -205,56 +205,93 @@ function Set-NetworkConfiguration {
 	param([bool]$DomainJoined)
 	$results = @()
 
-	# Set network profile
-	$networkProfile = Get-NetConnectionProfile | Select-Object -First 1
-	$networkCategory = $networkProfile.NetworkCategory
-	if (!$DomainJoined -and $networkCategory -ne 'Private') {
-		try {
-			$networkProfile | Set-NetConnectionProfile -NetworkCategory Private
-			$results += @{ Status = 'Success'; Message = 'Set Network Category to Private'; Error = $null }
+	if ($script:hasNetConnection) {
+		# Modern path: PS cmdlets (Win 8+)
+		$networkProfile = Get-NetConnectionProfile | Select-Object -First 1
+		$networkCategory = $networkProfile.NetworkCategory
+		if (!$DomainJoined -and $networkCategory -ne 'Private') {
+			try {
+				$networkProfile | Set-NetConnectionProfile -NetworkCategory Private
+				$results += @{ Status = 'Success'; Message = 'Set Network Category to Private'; Error = $null }
+			}
+			catch {
+				$results += @{ Status = 'Failed'; Message = 'Failed to Set Network Category to Private'; Error = $_.Exception.Message }
+			}
 		}
-		catch {
-			$results += @{ Status = 'Failed'; Message = 'Failed to Set Network Category to Private'; Error = $_.Exception.Message }
+		elseif ($DomainJoined) {
+			$results += @{ Status = 'Skipped'; Message = 'Network Category is managed by domain, skipping'; Error = $null }
 		}
-	}
-	elseif ($DomainJoined) {
-		$results += @{ Status = 'Skipped'; Message = 'Network Category is managed by domain, skipping'; Error = $null }
+		else {
+			$results += @{ Status = 'Success'; Message = "Network Category is already $networkCategory"; Error = $null }
+		}
+
+		# Re-read after possible change
+		$networkCategory = (Get-NetConnectionProfile | Select-Object -First 1).NetworkCategory
 	}
 	else {
-		$results += @{ Status = 'Success'; Message = "Network Category is already $networkCategory"; Error = $null }
+		# Legacy path: netsh (Win 7)
+		if (!$DomainJoined) {
+			try {
+				netsh advfirewall set currentprofile state on 2>&1 | Out-Null
+				$results += @{ Status = 'Success'; Message = 'Ensured firewall profile is active (netsh)'; Error = $null }
+			}
+			catch {
+				$results += @{ Status = 'Failed'; Message = 'Failed to configure firewall profile'; Error = $_.Exception.Message }
+			}
+		}
+		else {
+			$results += @{ Status = 'Skipped'; Message = 'Network Category is managed by domain, skipping'; Error = $null }
+		}
 	}
 
-	# Re-read after possible change
-	$networkCategory = (Get-NetConnectionProfile | Select-Object -First 1).NetworkCategory
-
 	# File and Printer Sharing
-	$sharingEnabled = Get-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound | Where-Object { $_.Enabled -eq 'True' -and $_.Profile -eq $networkCategory.ToString() }
-	if ($sharingEnabled.count -eq 0) {
+	if ($script:hasNetSecurity) {
+		$networkCategory = (Get-NetConnectionProfile | Select-Object -First 1).NetworkCategory
+		$sharingEnabled = Get-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound | Where-Object { $_.Enabled -eq 'True' -and $_.Profile -eq $networkCategory.ToString() }
+		if ($sharingEnabled.count -eq 0) {
+			try {
+				Set-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound -Enabled True -Profile $networkCategory.ToString()
+				$results += @{ Status = 'Success'; Message = 'Network file and printer sharing has been enabled.'; Error = $null }
+			}
+			catch {
+				$results += @{ Status = 'Failed'; Message = 'Failed to enable Network File and Printer Sharing.'; Error = $_.Exception.Message }
+			}
+		}
+		else {
+			$results += @{ Status = 'Success'; Message = 'Network File and Printer Sharing is already enabled.'; Error = $null }
+		}
+
+		# Network Discovery
+		$discoveryEnabled = Get-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound | Where-Object { $_.Enabled -eq 'True' -and $_.Profile -eq $networkCategory.ToString() }
+		if ($discoveryEnabled.count -eq 0) {
+			try {
+				Set-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound -Enabled True -Profile $networkCategory.ToString()
+				$results += @{ Status = 'Success'; Message = 'Network Discovery has been enabled.'; Error = $null }
+			}
+			catch {
+				$results += @{ Status = 'Failed'; Message = 'Failed to Enable Network Discovery.'; Error = $_.Exception.Message }
+			}
+		}
+		else {
+			$results += @{ Status = 'Success'; Message = 'Network Discovery is already enabled.'; Error = $null }
+		}
+	}
+	else {
+		# Legacy path: netsh advfirewall (Win 7)
 		try {
-			Set-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound -Enabled True -Profile $networkCategory.ToString()
-			$results += @{ Status = 'Success'; Message = 'Network file and printer sharing has been enabled.'; Error = $null }
+			netsh advfirewall firewall set rule group="File and Printer Sharing" new enable=Yes 2>&1 | Out-Null
+			$results += @{ Status = 'Success'; Message = 'Network file and printer sharing has been enabled (netsh).'; Error = $null }
 		}
 		catch {
 			$results += @{ Status = 'Failed'; Message = 'Failed to enable Network File and Printer Sharing.'; Error = $_.Exception.Message }
 		}
-	}
-	else {
-		$results += @{ Status = 'Success'; Message = 'Network File and Printer Sharing is already enabled.'; Error = $null }
-	}
-
-	# Network Discovery
-	$discoveryEnabled = Get-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound | Where-Object { $_.Enabled -eq 'True' -and $_.Profile -eq $networkCategory.ToString() }
-	if ($discoveryEnabled.count -eq 0) {
 		try {
-			Set-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound -Enabled True -Profile $networkCategory.ToString()
-			$results += @{ Status = 'Success'; Message = 'Network Discovery has been enabled.'; Error = $null }
+			netsh advfirewall firewall set rule group="Network Discovery" new enable=Yes 2>&1 | Out-Null
+			$results += @{ Status = 'Success'; Message = 'Network Discovery has been enabled (netsh).'; Error = $null }
 		}
 		catch {
 			$results += @{ Status = 'Failed'; Message = 'Failed to Enable Network Discovery.'; Error = $_.Exception.Message }
 		}
-	}
-	else {
-		$results += @{ Status = 'Success'; Message = 'Network Discovery is already enabled.'; Error = $null }
 	}
 	return $results
 }
