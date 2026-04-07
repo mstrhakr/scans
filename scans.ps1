@@ -153,13 +153,26 @@ function Initialize-ScanShare {
 		[string]$ScanUser
 	)
 	try {
-		if (!((Get-SmbShare).Name).toLower().Contains($ShareName)) {
-			New-SmbShare -Name $ShareName -Path $FolderPath -FullAccess $ScanUser | Out-Null
-			return @{ Status = 'Success'; Message = "Created SMB share '$ShareName'"; Error = $null }
+		if ($script:hasSmbShareCmdlets) {
+			if (!((Get-SmbShare).Name).toLower().Contains($ShareName)) {
+				New-SmbShare -Name $ShareName -Path $FolderPath -FullAccess $ScanUser | Out-Null
+				return @{ Status = 'Success'; Message = "Created SMB share '$ShareName'"; Error = $null }
+			}
+			else {
+				Grant-SmbShareAccess -Name $ShareName -AccountName $ScanUser -AccessRight Full -Force | Out-Null
+				return @{ Status = 'Success'; Message = "Updated SMB share permissions for '$ShareName'"; Error = $null }
+			}
 		}
 		else {
-			Grant-SmbShareAccess -Name $ShareName -AccountName $ScanUser -AccessRight Full -Force | Out-Null
-			return @{ Status = 'Success'; Message = "Updated SMB share permissions for '$ShareName'"; Error = $null }
+			$existing = net share $ShareName 2>&1
+			if ($LASTEXITCODE -ne 0) {
+				net share "$ShareName=$FolderPath" "/grant:$ScanUser,FULL" | Out-Null
+				return @{ Status = 'Success'; Message = "Created SMB share '$ShareName' (net share)"; Error = $null }
+			}
+			else {
+				net share "$ShareName=$FolderPath" "/grant:$ScanUser,FULL" /yes | Out-Null
+				return @{ Status = 'Success'; Message = "Updated SMB share '$ShareName' (net share)"; Error = $null }
+			}
 		}
 	}
 	catch {
