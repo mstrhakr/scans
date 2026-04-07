@@ -137,9 +137,13 @@ using System.Runtime.InteropServices;
 public class DwmHelper {
     [DllImport("dwmapi.dll", PreserveSig = true)]
     public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+    [DllImport("shell32.dll", SetLastError = true)]
+    public static extern void SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string AppID);
 }
 "@ -ErrorAction Stop
 	$script:hasDwmTheming = $true
+	# Give the process its own taskbar identity so Windows shows our icon instead of PowerShell's
+	[DwmHelper]::SetCurrentProcessExplicitAppUserModelID('mstrhakr.scans.setup')
 } catch { }
 
 function Set-WindowTheme($window) {
