@@ -563,37 +563,11 @@ elseif ($hideUser -eq $true) {
 }
 
 if ($createFolder -eq $true) {
-	# Check if scans folder exists, create if missing
-	if (!(Test-Path -Path $folderPath)) {
-		Set-ProgressBar "Creating scans folder" 200
-		New-Item -Path $folderPath -ItemType Directory -Force | Out-Null
-		if ($?) {
-			Write-Verbose "New folder created at $folderPath."
-		}
-		else {
-			Write-Error "Folder creation failed!`nManually Create Folder before Continuing!"
-		}
+	$folderResults = Initialize-ScanFolder -FolderPath $folderPath -ScanUser $scanUser -SetPermissions $setPermissions -DomainJoined $domainJoined
+	foreach ($r in $folderResults) {
+		Set-ProgressBar $r.Message
+		if ($r.Error) { Set-ProgressBar "  Error: $($r.Error)" 0 }
 	}
-	else {
-		Set-ProgressBar "Scans folder already exists"
-	}
-}
-
-if ($setPermissions -eq $true) {
-	# Grant full recursive permissions on the scan folder to the scan user and current local user
-	Set-ProgressBar "Setting folder permissions" 100
-	$folderAcl = (Get-Acl $folderPath)
-	$rule = New-Object System.Security.AccessControl.FileSystemAccessRule($Env:UserName, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
-	$folderAcl.SetAccessRule($rule)
-	$rule = New-Object System.Security.AccessControl.FileSystemAccessRule($scanUser, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
-	$folderAcl.SetAccessRule($rule)
-	$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Everyone", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
-	$folderAcl.SetAccessRule($rule)
-	if ($domainJoined) {
-		$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Domain Users", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
-		$folderAcl.SetAccessRule($rule)
-	}
-	Set-Acl $folderPath $folderAcl
 }
 
 if ($setShare -eq $true) {
