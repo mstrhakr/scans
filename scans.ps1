@@ -590,7 +590,12 @@ function createLoadingForm($done) {
 		$copyPasswordButton.Enabled = $false
 	}
 	$copyPasswordButton.Add_Click({
-		Set-Clipboard -Value $scanPass
+		if ($script:hasSetClipboard) {
+			Set-Clipboard -Value $scanPass
+		}
+		else {
+			[System.Windows.Forms.Clipboard]::SetText($scanPass)
+		}
 		Write-Verbose "Copied scan password to clipboard: $scanPass"
 		[System.Windows.MessageBox]::Show('Password has been copied to Clipboard')
 	})
