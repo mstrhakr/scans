@@ -1,6 +1,6 @@
 # **Scanning Setup Utility**
 
-![Visitors](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2Fmstrhakr%2Fscans&count_bg=%23268BD2&title_bg=%23073642&icon=github.svg&icon_color=%2393A1A1&title=views&edge_flat=true)
+![Profile Views](https://komarev.com/ghpvc/?username=mstrhakr-scans&label=views&color=268BD2&style=flat)
 
 A lightweight PowerShell utility that configures a Windows PC for network scanning in one click. Creates a dedicated scan user, shared folder, firewall rules, and desktop shortcut — no manual setup required.
 
