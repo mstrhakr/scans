@@ -50,7 +50,6 @@ if ($PSVersionTable.PSVersion.Major -lt 3) {
 }
 
 # Detect OS capabilities for legacy fallback
-$script:osVersion = [Environment]::OSVersion.Version
 $script:hasLocalAccounts = [bool](Get-Command -Name 'Get-LocalUser' -ErrorAction SilentlyContinue)
 $script:hasSmbShareCmdlets = [bool](Get-Command -Name 'Get-SmbShare' -ErrorAction SilentlyContinue)
 $script:hasNetSecurity = [bool](Get-Command -Name 'Get-NetFirewallRule' -ErrorAction SilentlyContinue)
@@ -709,7 +708,7 @@ $script:progressWindow.FindName('btnDone').Add_Click({
 })
 
 $script:progressWindow.Show()
-$percent = 0
+$script:percent = 0
 $script:hasErrors = $false
 
 function Get-ErrorRemediation([string]$errorText) {
