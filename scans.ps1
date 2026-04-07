@@ -324,10 +324,10 @@ function Initialize-ScanFolder {
 			$folderAcl.SetAccessRule($rule)
 			$rule = New-Object System.Security.AccessControl.FileSystemAccessRule($ScanUser, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
 			$folderAcl.SetAccessRule($rule)
-			$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Everyone", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+			$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Everyone", "Modify", "ContainerInherit,ObjectInherit", "None", "Allow")
 			$folderAcl.SetAccessRule($rule)
 			if ($DomainJoined) {
-				$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Domain Users", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+				$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Domain Users", "Modify", "ContainerInherit,ObjectInherit", "None", "Allow")
 				$folderAcl.SetAccessRule($rule)
 			}
 			Set-Acl $FolderPath $folderAcl
