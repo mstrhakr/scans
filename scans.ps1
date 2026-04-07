@@ -143,6 +143,27 @@ function Initialize-ScanShare {
 	}
 }
 
+function Initialize-DesktopShortcut {
+	param(
+		[string]$FolderPath,
+		[string]$IconPath,
+		[string]$Description
+	)
+	try {
+		$shortcutPath = "C:\Users\Public\Desktop\Scans.lnk"
+		$shellObject = New-Object -ComObject ("WScript.Shell")
+		$desktopShortCut = $shellObject.CreateShortcut($shortcutPath)
+		$desktopShortCut.TargetPath = $FolderPath
+		$desktopShortCut.IconLocation = $IconPath
+		$desktopShortCut.Description = $Description
+		$desktopShortCut.Save() | Out-Null
+		return @{ Status = 'Success'; Message = 'Created desktop shortcut'; Error = $null }
+	}
+	catch {
+		return @{ Status = 'Failed'; Message = 'Failed to create desktop shortcut'; Error = $_.Exception.Message }
+	}
+}
+
 # Download icon
 $iconPath = 'C:\ProgramData\scans.ico'
 Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/img/scans.ico' -OutFile $iconPath | Out-Null
@@ -577,16 +598,9 @@ if ($setShare -eq $true) {
 }
 
 if ($createShortcut -eq $true) {
-	# Create scan folder desktop shortcut
-	Set-ProgressBar "Creating Desktop Shortcut"
-	$shortcutPath = "C:\Users\Public\Desktop\Scans.lnk"
-	$iconPath = 'C:\ProgramData\scans.ico'
-	$shellObject = New-Object -ComObject ("WScript.Shell")
-	$desktopShortCut = $shellObject.CreateShortcut($shortcutPath)
-	$desktopShortCut.TargetPath = $folderPath
-	$desktopShortCut.IconLocation = $iconPath
-	$desktopShortCut.Description = $description
-	$desktopShortCut.Save() | Out-Null
+	$shortcutResult = Initialize-DesktopShortcut -FolderPath $folderPath -IconPath $iconPath -Description $description
+	Set-ProgressBar $shortcutResult.Message
+	if ($shortcutResult.Error) { Set-ProgressBar "  Error: $($shortcutResult.Error)" 0 }
 }
 
 if ($checkNetworkSettings -eq $true) {
