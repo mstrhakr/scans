@@ -19,6 +19,12 @@ $setShare = $true
 $createShortcut = $true
 $checkNetworkSettings = $true
 
+function New-RandomPassword {
+	param([int]$Length = 10)
+	$chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*+-=?'
+	return -join ((1..$Length) | ForEach-Object { $chars[(Get-Random -Maximum $chars.Length)] })
+}
+
 # Download icon
 $iconPath = 'C:\ProgramData\scans.ico'
 Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/img/scans.ico' -OutFile $iconPath | Out-Null
@@ -214,10 +220,7 @@ $scanningSetupForm.Controls.Add($scanPassLabel)
 $scanPassTextBox = New-Object System.Windows.Forms.TextBox
 $scanPassTextBox.Location = New-Object System.Drawing.Point (80, 35)
 $scanPassTextBox.Size = New-Object System.Drawing.Size (190, 20)
-# Generate a random password using PowerShell native methods
-$chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*+-=?"
-$password = -join ((1..10) | ForEach-Object { $chars[(Get-Random -Maximum $chars.Length)] })
-$scanPassTextBox.Text = $password
+$scanPassTextBox.Text = New-RandomPassword
 $scanningSetupForm.Controls.Add($scanPassTextBox)
 
 # Create a text box for the user to choose a custom path
