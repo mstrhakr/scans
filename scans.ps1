@@ -46,13 +46,24 @@ if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adm
 			if (-not $scriptBody) { throw 'Could not capture script content for elevation.' }
 			[IO.File]::WriteAllText($scriptPath, $scriptBody, [Text.Encoding]::UTF8)
 		}
-		Start-Process -FilePath 'powershell.exe' -ArgumentList "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$scriptPath`"" -Verb RunAs
+		Start-Process -FilePath 'powershell.exe' -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`"" -Verb RunAs -Environment @{ SCANS_ELEVATED = '1' }
 	} catch {
 		Show-ErrorAndExit -Title 'Administrator Required' `
 			-Message "This script must be run as Administrator to create users, shares, and configure network settings.`n`n$($_.Exception.Message)" `
 			-Remediation $script:Remediation.NotAdmin
 	}
 	return
+}
+
+# If we self-elevated, hide the console window — the WPF GUI is the only UI the user needs
+$script:selfElevated = $env:SCANS_ELEVATED -eq '1'
+if ($script:selfElevated) {
+	$env:SCANS_ELEVATED = $null
+	Add-Type -Name ConsoleWindow -Namespace Win32 -MemberDefinition @'
+[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+'@ -ErrorAction SilentlyContinue
+	try { [Win32.ConsoleWindow]::ShowWindow([Win32.ConsoleWindow]::GetConsoleWindow(), 0) | Out-Null } catch { }
 }
 
 # 2. Require PowerShell 3.0+
@@ -804,3 +815,4 @@ if ($createUser) { $script:progressWindow.FindName('btnCopyPassword').IsEnabled 
 $frame = [System.Windows.Threading.DispatcherFrame]::new()
 $script:progressWindow.Add_Closed({ $frame.Continue = $false })
 [System.Windows.Threading.Dispatcher]::PushFrame($frame)
+if ($script:selfElevated) { Exit 0 }
