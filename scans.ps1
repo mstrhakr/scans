@@ -247,10 +247,12 @@ function Set-NetworkConfiguration {
 	# File and Printer Sharing
 	if ($script:hasNetSecurity) {
 		$networkCategory = (Get-NetConnectionProfile | Select-Object -First 1).NetworkCategory
-		$sharingEnabled = Get-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound | Where-Object { $_.Enabled -eq 'True' -and $_.Profile -eq $networkCategory.ToString() }
+		# Map DomainAuthenticated to Domain for firewall cmdlets
+		$firewallProfile = if ($networkCategory -eq 'DomainAuthenticated') { 'Domain' } else { $networkCategory.ToString() }
+		$sharingEnabled = Get-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound | Where-Object { $_.Enabled -eq 'True' -and $_.Profile -eq $firewallProfile }
 		if ($sharingEnabled.count -eq 0) {
 			try {
-				Set-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound -Enabled True -Profile $networkCategory.ToString()
+				Set-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound -Enabled True -Profile $firewallProfile
 				$results += @{ Status = 'Success'; Message = 'Network file and printer sharing has been enabled.'; Error = $null }
 			}
 			catch {
@@ -262,10 +264,10 @@ function Set-NetworkConfiguration {
 		}
 
 		# Network Discovery
-		$discoveryEnabled = Get-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound | Where-Object { $_.Enabled -eq 'True' -and $_.Profile -eq $networkCategory.ToString() }
+		$discoveryEnabled = Get-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound | Where-Object { $_.Enabled -eq 'True' -and $_.Profile -eq $firewallProfile }
 		if ($discoveryEnabled.count -eq 0) {
 			try {
-				Set-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound -Enabled True -Profile $networkCategory.ToString()
+				Set-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound -Enabled True -Profile $firewallProfile
 				$results += @{ Status = 'Success'; Message = 'Network Discovery has been enabled.'; Error = $null }
 			}
 			catch {
@@ -296,9 +298,11 @@ function Set-NetworkConfiguration {
 	return $results
 }
 
-# Download icon
+# Download icon (skip if already cached to avoid file-lock on re-run)
 $iconPath = 'C:\ProgramData\scans.ico'
-Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/img/scans.ico' -OutFile $iconPath | Out-Null
+if (!(Test-Path $iconPath)) {
+	Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/img/scans.ico' -OutFile $iconPath | Out-Null
+}
 $script:iconUri = [Uri]::new($iconPath)
 
 # --- WPF Settings Dialog ---
@@ -479,7 +483,7 @@ function Set-ProgressBar($text, $sleep = 250) {
 	$script:progressWindow.FindName('progressBar').Value = [Math]::Min($script:percent, $script:progressMax)
 	$script:details.Insert(0, $text) | Out-Null
 	$script:progressWindow.FindName('lstDetails').Items.Insert(0, $text) | Out-Null
-	Write-Verbose "Progress Text: $text"
+	Write-Host $text
 	[System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
 	Start-Sleep -Milliseconds $sleep
 }
