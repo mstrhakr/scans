@@ -815,4 +815,5 @@ if ($createUser) { $script:progressWindow.FindName('btnCopyPassword').IsEnabled 
 $frame = [System.Windows.Threading.DispatcherFrame]::new()
 $script:progressWindow.Add_Closed({ $frame.Continue = $false })
 [System.Windows.Threading.Dispatcher]::PushFrame($frame)
+$env:SCANS_ELEVATED = $null
 if ($script:selfElevated) { Exit 0 }
