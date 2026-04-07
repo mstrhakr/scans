@@ -234,138 +234,54 @@ function New-SettingsPage {
 	$settings.Size = New-Object System.Drawing.Size(300, 200)
 	$settings.StartPosition = 'CenterScreen'
 
-	# Create checkbox
 	$createUserCheckbox = New-Object System.Windows.Forms.CheckBox
 	$createUserCheckbox.Location = New-Object System.Drawing.Point(10, 10)
 	$createUserCheckbox.Size = New-Object System.Drawing.Size(250, 20)
 	$createUserCheckbox.Text = 'Create new user account'
 	$createUserCheckbox.Checked = $createUser
+	$createUserCheckbox.Add_CheckedChanged({ $script:createUser = $createUserCheckbox.Checked })
 
-	# Add checkbox checked event
-	$createUserCheckbox.Add_CheckedChanged(
-		{
-			if ($createUserCheckbox.Checked) {
-				$script:createUser = $true
-			}
-			else {
-				$script:createUser = $false
-			}
-		}
-	)
-	
-	# Create checkbox
 	$hideUserCheckbox = New-Object System.Windows.Forms.CheckBox
 	$hideUserCheckbox.Location = New-Object System.Drawing.Point(10, 30)
 	$hideUserCheckbox.Size = New-Object System.Drawing.Size(250, 20)
 	$hideUserCheckbox.Text = 'Hide user account from login screen'
 	$hideUserCheckbox.Checked = $hideUser
+	$hideUserCheckbox.Add_CheckedChanged({ $script:hideUser = $hideUserCheckbox.Checked })
 
-	# Add checkbox checked event
-	$hideUserCheckbox.Add_CheckedChanged(
-		{
-			if ($hideUserCheckbox.Checked) {
-				$script:hideUser = $true
-			}
-			else {
-				$script:hideUser = $false
-			}
-		}
-	)
-
-	# Create checkbox
 	$createFolderCheckbox = New-Object System.Windows.Forms.CheckBox
 	$createFolderCheckbox.Location = New-Object System.Drawing.Point(10, 50)
 	$createFolderCheckbox.Size = New-Object System.Drawing.Size(250, 20)
 	$createFolderCheckbox.Text = 'Create scans folder'
 	$createFolderCheckbox.Checked = $createFolder
+	$createFolderCheckbox.Add_CheckedChanged({ $script:createFolder = $createFolderCheckbox.Checked })
 
-	# Add checkbox checked event
-	$createFolderCheckbox.Add_CheckedChanged(
-		{
-			if ($createFolderCheckbox.Checked) {
-				$script:createFolder = $true
-			}
-			else {
-				$script:createFolder = $false
-			}
-		}
-	)
-
-	# Create checkbox
 	$setPermissionsCheckbox = New-Object System.Windows.Forms.CheckBox
 	$setPermissionsCheckbox.Location = New-Object System.Drawing.Point(10, 70)
 	$setPermissionsCheckbox.Size = New-Object System.Drawing.Size(250, 20)
 	$setPermissionsCheckbox.Text = 'Set permissions on scans folder'
 	$setPermissionsCheckbox.Checked = $setPermissions
+	$setPermissionsCheckbox.Add_CheckedChanged({ $script:setPermissions = $setPermissionsCheckbox.Checked })
 
-	# Add checkbox checked event
-	$setPermissionsCheckbox.Add_CheckedChanged(
-		{
-			if ($setPermissionsCheckbox.Checked) {
-				$script:setPermissions = $true
-			}
-			else {
-				$script:setPermissions = $false
-			}
-		}
-	)
-
-	# Create checkbox
 	$setShareCheckbox = New-Object System.Windows.Forms.CheckBox
 	$setShareCheckbox.Location = New-Object System.Drawing.Point(10, 90)
 	$setShareCheckbox.Size = New-Object System.Drawing.Size(250, 20)
 	$setShareCheckbox.Text = 'Set SMB share on scans folder'
 	$setShareCheckbox.Checked = $setShare
+	$setShareCheckbox.Add_CheckedChanged({ $script:setShare = $setShareCheckbox.Checked })
 
-	# Add checkbox checked event
-	$setShareCheckbox.Add_CheckedChanged(
-		{
-			if ($setShareCheckbox.Checked) {
-				$script:setShare = $true
-			}
-			else {
-				$script:setShare = $false
-			}
-		}
-	)
-
-	# Create checkbox
 	$createShortcutCheckbox = New-Object System.Windows.Forms.CheckBox
 	$createShortcutCheckbox.Location = New-Object System.Drawing.Point(10, 110)
 	$createShortcutCheckbox.Size = New-Object System.Drawing.Size(250, 20)
 	$createShortcutCheckbox.Text = 'Create desktop shortcut'
 	$createShortcutCheckbox.Checked = $createShortcut
+	$createShortcutCheckbox.Add_CheckedChanged({ $script:createShortcut = $createShortcutCheckbox.Checked })
 
-	# Add checkbox checked event
-	$createShortcutCheckbox.Add_CheckedChanged(
-		{
-			if ($createShortcutCheckbox.Checked) {
-				$script:createShortcut = $true
-			}
-			else {
-				$script:createShortcut = $false
-			}
-		}
-	)
-
-	# Create checkbox
 	$checkNetworkSettingsCheckbox = New-Object System.Windows.Forms.CheckBox
 	$checkNetworkSettingsCheckbox.Location = New-Object System.Drawing.Point(10, 130)
 	$checkNetworkSettingsCheckbox.Size = New-Object System.Drawing.Size(250, 20)
 	$checkNetworkSettingsCheckbox.Text = 'Check network settings'
 	$checkNetworkSettingsCheckbox.Checked = $checkNetworkSettings
-
-	# Add checkbox checked event
-	$checkNetworkSettingsCheckbox.Add_CheckedChanged(
-		{
-			if ($checkNetworkSettingsCheckbox.Checked) {
-				$script:checkNetworkSettings = $true
-			}
-			else {
-				$script:checkNetworkSettings = $false
-			}
-		}
-	)
+	$checkNetworkSettingsCheckbox.Add_CheckedChanged({ $script:checkNetworkSettings = $checkNetworkSettingsCheckbox.Checked })
 
 	# Create an OK button and add it to the form
 	$okButton = New-Object System.Windows.Forms.Button
