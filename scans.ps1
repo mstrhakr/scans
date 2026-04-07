@@ -291,6 +291,7 @@ Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/img/set
 $image = [System.Drawing.Image]::FromFile($imagePath)
 $thumbnailSize = New-Object System.Drawing.Size(($settingsButton.Width - 10), ($settingsButton.Height - 10))
 $thumbnailImage = $image.GetThumbnailImage($thumbnailSize.Width, $thumbnailSize.Height, $null, [System.IntPtr]::Zero)
+$image.Dispose()
 $settingsButton.Image = $thumbnailImage
 
 # Add click event to open settings
