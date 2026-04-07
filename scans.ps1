@@ -453,8 +453,7 @@ if ($createFolder -eq $true) {
 	# Check if scans folder exists, create if missing
 	if (!(Test-Path -Path $folderPath)) {
 		Set-ProgressBar "Creating scans folder" 200
-		New-Item -Path $($folderPath.Split(':')[0] + ':/') -Name $folderPath.Split(':')[1] -ItemType Directory | Out-Null
-		#Check if creating folder was successful $? = Was last command successful?(T/F)
+		New-Item -Path $folderPath -ItemType Directory -Force | Out-Null
 		if ($?) {
 			Write-Verbose "New folder created at $folderPath."
 		}
