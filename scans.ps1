@@ -572,8 +572,8 @@ if ($checkNetworkSettings -eq $true) {
 Set-ProgressBar "Finished" 0
 $loadingForm.Close() | Out-Null
 createLoadingForm $true
-$loadingForm.ShowDialog() | Out-Null
-if ($done -eq [System.Windows.Forms.DialogResult]::OK) {
+$result = $loadingForm.ShowDialog()
+if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
 	$loadingForm.Close() | Out-Null
 	Exit 0
 }
