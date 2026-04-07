@@ -74,6 +74,54 @@ function Initialize-ScanUser {
 	return $results
 }
 
+function Initialize-ScanFolder {
+	param(
+		[string]$FolderPath,
+		[string]$ScanUser,
+		[bool]$SetPermissions,
+		[bool]$DomainJoined
+	)
+	$results = @()
+
+	# Create folder if missing
+	try {
+		if (!(Test-Path -Path $FolderPath)) {
+			New-Item -Path $FolderPath -ItemType Directory -Force | Out-Null
+			$results += @{ Status = 'Success'; Message = "Created folder at $FolderPath"; Error = $null }
+		}
+		else {
+			$results += @{ Status = 'Success'; Message = 'Scans folder already exists'; Error = $null }
+		}
+	}
+	catch {
+		$results += @{ Status = 'Failed'; Message = "Failed to create folder at $FolderPath"; Error = $_.Exception.Message }
+		return $results
+	}
+
+	# Set permissions
+	if ($SetPermissions) {
+		try {
+			$folderAcl = Get-Acl $FolderPath
+			$rule = New-Object System.Security.AccessControl.FileSystemAccessRule($Env:UserName, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+			$folderAcl.SetAccessRule($rule)
+			$rule = New-Object System.Security.AccessControl.FileSystemAccessRule($ScanUser, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+			$folderAcl.SetAccessRule($rule)
+			$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Everyone", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+			$folderAcl.SetAccessRule($rule)
+			if ($DomainJoined) {
+				$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Domain Users", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+				$folderAcl.SetAccessRule($rule)
+			}
+			Set-Acl $FolderPath $folderAcl
+			$results += @{ Status = 'Success'; Message = 'Folder permissions set'; Error = $null }
+		}
+		catch {
+			$results += @{ Status = 'Failed'; Message = 'Failed to set folder permissions'; Error = $_.Exception.Message }
+		}
+	}
+	return $results
+}
+
 # Download icon
 $iconPath = 'C:\ProgramData\scans.ico'
 Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/img/scans.ico' -OutFile $iconPath | Out-Null
