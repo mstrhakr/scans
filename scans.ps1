@@ -58,6 +58,76 @@ $script:hasNetConnection = [bool](Get-Command -Name 'Get-NetConnectionProfile' -
 $script:hasCimInstance = [bool](Get-Command -Name 'Get-CimInstance' -ErrorAction SilentlyContinue)
 $script:hasSetClipboard = [bool](Get-Command -Name 'Set-Clipboard' -ErrorAction SilentlyContinue)
 
+# --- Theme detection (Solarized Light/Dark, defaults to Dark) ---
+$script:useDarkTheme = $true
+try {
+	$themeReg = Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' -Name 'AppsUseLightTheme' -ErrorAction SilentlyContinue
+	if ($themeReg -and $themeReg.AppsUseLightTheme -eq 1) { $script:useDarkTheme = $false }
+} catch { }
+
+if ($script:useDarkTheme) {
+	$script:thBg = '#002b36'; $script:thBgAlt = '#073642'
+	$script:thFg = '#839496'; $script:thFgEm = '#93a1a1'; $script:thFgStrong = '#eee8d5'
+	$script:thAccent = '#268bd2'; $script:thAccentHi = '#2aa198'
+	$script:thBorder = '#586e75'; $script:thBtnText = '#fdf6e3'
+} else {
+	$script:thBg = '#fdf6e3'; $script:thBgAlt = '#eee8d5'
+	$script:thFg = '#657b83'; $script:thFgEm = '#586e75'; $script:thFgStrong = '#073642'
+	$script:thAccent = '#268bd2'; $script:thAccentHi = '#2aa198'
+	$script:thBorder = '#93a1a1'; $script:thBtnText = '#fdf6e3'
+}
+
+$script:themeResources = @"
+    <Window.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="$($script:thAccent)"/>
+            <Setter Property="Foreground" Value="$($script:thBtnText)"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="3"
+                                Padding="6,3" SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="$($script:thAccentHi)"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="$($script:thBgAlt)"/>
+            <Setter Property="Foreground" Value="$($script:thFgStrong)"/>
+            <Setter Property="BorderBrush" Value="$($script:thBorder)"/>
+            <Setter Property="Padding" Value="4,3"/>
+        </Style>
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="$($script:thFg)"/>
+        </Style>
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="$($script:thFg)"/>
+        </Style>
+        <Style TargetType="ProgressBar">
+            <Setter Property="Background" Value="$($script:thBgAlt)"/>
+            <Setter Property="Foreground" Value="$($script:thAccent)"/>
+            <Setter Property="BorderBrush" Value="$($script:thBorder)"/>
+        </Style>
+        <Style TargetType="ListBox">
+            <Setter Property="Background" Value="$($script:thBgAlt)"/>
+            <Setter Property="Foreground" Value="$($script:thFg)"/>
+            <Setter Property="BorderBrush" Value="$($script:thBorder)"/>
+        </Style>
+    </Window.Resources>
+"@
+
 $createUser = $true
 $hideUser = $true
 $createFolder = $true
@@ -354,7 +424,9 @@ $script:iconUri = [Uri]::new($iconPath)
 function New-SettingsPage {
 	[xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        Title="Settings" Height="270" Width="300" WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+        Title="Settings" Height="270" Width="300" WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Background="$($script:thBg)" Foreground="$($script:thFg)" FontFamily="Segoe UI" FontSize="13">
+$($script:themeResources)
     <StackPanel Margin="12">
         <CheckBox Name="chkCreateUser" Content="Create new user account" Margin="0,0,0,6"/>
         <CheckBox Name="chkHideUser" Content="Hide user from login screen" Margin="0,0,0,6"/>
@@ -396,7 +468,9 @@ function New-SettingsPage {
 # --- WPF Setup Window ---
 [xml]$setupXaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        Title="Scans Setup" Height="210" Width="360" WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+        Title="Scans Setup" Height="210" Width="360" WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Background="$($script:thBg)" Foreground="$($script:thFg)" FontFamily="Segoe UI" FontSize="13">
+$($script:themeResources)
     <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -475,7 +549,9 @@ if ($checkNetworkSettings) { $script:progressMax += 3 }
 
 [xml]$progressXaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        Title="Scans Setup - Loading..." Height="240" Width="360" WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+        Title="Scans Setup - Loading..." Height="240" Width="360" WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Background="$($script:thBg)" Foreground="$($script:thFg)" FontFamily="Segoe UI" FontSize="13">
+$($script:themeResources)
     <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
