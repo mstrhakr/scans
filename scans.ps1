@@ -496,6 +496,7 @@ function Set-NetworkConfiguration {
 $iconPath = 'C:\ProgramData\scans.ico'
 if (!(Test-Path $iconPath)) {
 	try {
+		[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 		Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/img/scans.ico' -OutFile $iconPath -ErrorAction Stop | Out-Null
 	}
 	catch {
