@@ -613,7 +613,12 @@ function Set-ProgressBar($text, $sleep = 250) {
 
 # Gather computer details
 Set-ProgressBar "Gathering local computer details"
-$computerDetails = Get-CimInstance -ClassName Win32_ComputerSystem
+if ($script:hasCimInstance) {
+	$computerDetails = Get-CimInstance -ClassName Win32_ComputerSystem
+}
+else {
+	$computerDetails = Get-WmiObject -Class Win32_ComputerSystem
+}
 $domainJoined = $computerDetails.PartOfDomain
 
 # Create/update scans user account and hide from login screen
