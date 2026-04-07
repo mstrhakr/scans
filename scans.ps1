@@ -524,7 +524,7 @@ try {
 function New-SettingsPage {
 	[xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        Title="Settings" Height="310" Width="340" WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Title="Settings" SizeToContent="Height" Width="300" WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
         Background="$($script:thBg)" Foreground="$($script:thFg)" FontFamily="Segoe UI" FontSize="13">
 $($script:themeResources)
     <StackPanel Margin="12">
