@@ -42,12 +42,14 @@ if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adm
 		$scriptPath = $PSCommandPath
 		if (-not $scriptPath) {
 			$scriptPath = "$env:TEMP\scans.ps1"
-			[IO.File]::WriteAllText($scriptPath, $MyInvocation.MyCommand.ScriptBlock.ToString(), [Text.Encoding]::UTF8)
+			$scriptBody = $MyInvocation.MyCommand.ScriptBlock.ToString()
+			if (-not $scriptBody) { throw 'Could not capture script content for elevation.' }
+			[IO.File]::WriteAllText($scriptPath, $scriptBody, [Text.Encoding]::UTF8)
 		}
-		Start-Process -FilePath 'powershell.exe' -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`"" -Verb RunAs
+		Start-Process -FilePath 'powershell.exe' -ArgumentList "-NoProfile -NoExit -ExecutionPolicy Bypass -File `"$scriptPath`"" -Verb RunAs
 	} catch {
 		Show-ErrorAndExit -Title 'Administrator Required' `
-			-Message 'This script must be run as Administrator to create users, shares, and configure network settings.' `
+			-Message "This script must be run as Administrator to create users, shares, and configure network settings.`n`n$($_.Exception.Message)" `
 			-Remediation $script:Remediation.NotAdmin
 	}
 	return
