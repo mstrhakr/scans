@@ -642,7 +642,7 @@ if ($setupResult -eq $true) {
 	$script:scanPass = $setupWindow.FindName('txtPassword').Text
 	$script:folderPath = $setupWindow.FindName('txtFolderPath').Text
 	$script:shareName = $setupWindow.FindName('txtShareName').Text
-	Write-Verbose "Username: $script:scanUser `nPassword: $script:scanPass `nLocal Dir: $script:folderPath`nSMB Share: $script:shareName"
+	Write-Verbose "Username: $script:scanUser `nLocal Dir: $script:folderPath`nSMB Share: $script:shareName"
 }
 else {
 	Write-Verbose "User canceled scanning setup"
@@ -700,7 +700,7 @@ $script:progressWindow.FindName('btnCopyPassword').Add_Click({
 	else {
 		[System.Windows.Forms.Clipboard]::SetText($scanPass)
 	}
-	Write-Verbose "Copied scan password to clipboard: $scanPass"
+	Write-Verbose "Copied scan password to clipboard"
 	[System.Windows.MessageBox]::Show('Password has been copied to Clipboard')
 })
 
