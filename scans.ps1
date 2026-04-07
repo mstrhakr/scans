@@ -546,35 +546,19 @@ Set-ProgressBar "Gathering local computer details"
 $computerDetails = Get-CimInstance -ClassName Win32_ComputerSystem
 $domainJoined = $computerDetails.PartOfDomain
 
-# Creates scans user account if it doesn't exist, otherwise sets password for account
+# Create/update scans user account and hide from login screen
 if ($createUser -eq $true) {
-	Set-ProgressBar "Checking User Details"
-	if (![boolean](Get-LocalUser -Name $scanUser -ErrorAction SilentlyContinue)) {
-		Set-ProgressBar "Creating New User"
-		New-LocalUser -Name $scanUser -Password $($scanPass | ConvertTo-SecureString -AsPlainText -Force) -Description $description -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword -FullName "scans" | Out-Null
-	}
-	else {
-		Set-ProgressBar "Updating Existing User"
-		Set-LocalUser -Name $scanUser -Password $($scanPass | ConvertTo-SecureString -AsPlainText -Force) -Description $description | Out-Null
+	$userResults = Initialize-ScanUser -Username $scanUser -Password $scanPass -Description $description -HideFromLogin $hideUser -DomainJoined $domainJoined
+	foreach ($r in $userResults) {
+		Set-ProgressBar $r.Message
+		if ($r.Error) { Set-ProgressBar "  Error: $($r.Error)" 0 }
 	}
 }
-if ($hideUser -eq $true) {
-	# Hide scans account from login screen on non domain joined computers
-	$path = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\Userlist'
-	$hideAccount = Get-ItemProperty -Path $path -Name $scanUser -ErrorAction SilentlyContinue
-	if ($? -and $hideAccount.($scanUser) -eq 0) {
-		Set-ProgressBar "User account is already hidden from login screen"
-	}
-	elseif (!$domainJoined) {
-		Set-ProgressBar "Hiding scans user from login screen"
-		if (!(Test-Path $path)) {
-			Write-Verbose "Creating Registry Object at $path"
-			New-Item -Path $path -Force | Out-Null
-		}
-		New-ItemProperty -Path $path -Name $scanUser -Value 0 -PropertyType 'DWord' -Force | Out-Null
-	}
-	else {
-		Set-ProgressBar "Computer is domain joined, continuing"
+elseif ($hideUser -eq $true) {
+	$userResults = Initialize-ScanUser -Username $scanUser -Password $scanPass -Description $description -HideFromLogin $true -DomainJoined $domainJoined
+	foreach ($r in $userResults) {
+		Set-ProgressBar $r.Message
+		if ($r.Error) { Set-ProgressBar "  Error: $($r.Error)" 0 }
 	}
 }
 
