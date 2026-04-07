@@ -130,8 +130,9 @@ $script:themeResources = @"
 
 # --- DWM title bar theming (Win10 1809+ dark mode, Win11 22H2+ caption color) ---
 $script:hasDwmTheming = $false
-try {
-	Add-Type -TypeDefinition @"
+if (-not ([System.Management.Automation.PSTypeName]'DwmHelper').Type) {
+	try {
+		Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
 public class DwmHelper {
@@ -141,10 +142,13 @@ public class DwmHelper {
     public static extern void SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string AppID);
 }
 "@ -ErrorAction Stop
+	} catch { }
+}
+if (([System.Management.Automation.PSTypeName]'DwmHelper').Type) {
 	$script:hasDwmTheming = $true
 	# Give the process its own taskbar identity so Windows shows our icon instead of PowerShell's
-	[DwmHelper]::SetCurrentProcessExplicitAppUserModelID('mstrhakr.scans.setup')
-} catch { }
+	try { [DwmHelper]::SetCurrentProcessExplicitAppUserModelID('mstrhakr.scans.setup') } catch { }
+}
 
 function Set-WindowTheme($window) {
 	if (-not $script:hasDwmTheming) { return }
