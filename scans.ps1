@@ -299,211 +299,119 @@ function Set-NetworkConfiguration {
 # Download icon
 $iconPath = 'C:\ProgramData\scans.ico'
 Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/img/scans.ico' -OutFile $iconPath | Out-Null
+$script:iconUri = [Uri]::new($iconPath)
 
+# --- WPF Settings Dialog ---
 function New-SettingsPage {
-	# Create form
-	$settings = New-Object System.Windows.Forms.Form
-	$settings.Text = 'Settings'
-	$settings.Icon = [System.Drawing.Icon]::new($iconPath)
-	$settings.Size = New-Object System.Drawing.Size(300, 200)
-	$settings.StartPosition = 'CenterScreen'
+	[xml]$xaml = @"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        Title="Settings" Height="270" Width="300" WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+    <StackPanel Margin="12">
+        <CheckBox Name="chkCreateUser" Content="Create new user account" Margin="0,0,0,6"/>
+        <CheckBox Name="chkHideUser" Content="Hide user from login screen" Margin="0,0,0,6"/>
+        <CheckBox Name="chkCreateFolder" Content="Create scans folder" Margin="0,0,0,6"/>
+        <CheckBox Name="chkSetPermissions" Content="Set folder permissions" Margin="0,0,0,6"/>
+        <CheckBox Name="chkSetShare" Content="Set SMB share" Margin="0,0,0,6"/>
+        <CheckBox Name="chkCreateShortcut" Content="Create desktop shortcut" Margin="0,0,0,6"/>
+        <CheckBox Name="chkNetworkSettings" Content="Check network settings" Margin="0,0,0,6"/>
+        <Button Name="btnOK" Content="OK" Width="75" Height="24" HorizontalAlignment="Right" Margin="0,12,0,0"/>
+    </StackPanel>
+</Window>
+"@
+	$reader = [System.Xml.XmlNodeReader]::new($xaml)
+	$window = [Windows.Markup.XamlReader]::Load($reader)
+	$window.Icon = [System.Windows.Media.Imaging.BitmapImage]::new($script:iconUri)
 
-	$createUserCheckbox = New-Object System.Windows.Forms.CheckBox
-	$createUserCheckbox.Location = New-Object System.Drawing.Point(10, 10)
-	$createUserCheckbox.Size = New-Object System.Drawing.Size(250, 20)
-	$createUserCheckbox.Text = 'Create new user account'
-	$createUserCheckbox.Checked = $createUser
-	$createUserCheckbox.Add_CheckedChanged({ $script:createUser = $createUserCheckbox.Checked })
+	$window.FindName('chkCreateUser').IsChecked = $script:createUser
+	$window.FindName('chkHideUser').IsChecked = $script:hideUser
+	$window.FindName('chkCreateFolder').IsChecked = $script:createFolder
+	$window.FindName('chkSetPermissions').IsChecked = $script:setPermissions
+	$window.FindName('chkSetShare').IsChecked = $script:setShare
+	$window.FindName('chkCreateShortcut').IsChecked = $script:createShortcut
+	$window.FindName('chkNetworkSettings').IsChecked = $script:checkNetworkSettings
 
-	$hideUserCheckbox = New-Object System.Windows.Forms.CheckBox
-	$hideUserCheckbox.Location = New-Object System.Drawing.Point(10, 30)
-	$hideUserCheckbox.Size = New-Object System.Drawing.Size(250, 20)
-	$hideUserCheckbox.Text = 'Hide user account from login screen'
-	$hideUserCheckbox.Checked = $hideUser
-	$hideUserCheckbox.Add_CheckedChanged({ $script:hideUser = $hideUserCheckbox.Checked })
+	$window.FindName('btnOK').Add_Click({
+		$script:createUser = [bool]$window.FindName('chkCreateUser').IsChecked
+		$script:hideUser = [bool]$window.FindName('chkHideUser').IsChecked
+		$script:createFolder = [bool]$window.FindName('chkCreateFolder').IsChecked
+		$script:setPermissions = [bool]$window.FindName('chkSetPermissions').IsChecked
+		$script:setShare = [bool]$window.FindName('chkSetShare').IsChecked
+		$script:createShortcut = [bool]$window.FindName('chkCreateShortcut').IsChecked
+		$script:checkNetworkSettings = [bool]$window.FindName('chkNetworkSettings').IsChecked
+		$window.DialogResult = $true
+	})
 
-	$createFolderCheckbox = New-Object System.Windows.Forms.CheckBox
-	$createFolderCheckbox.Location = New-Object System.Drawing.Point(10, 50)
-	$createFolderCheckbox.Size = New-Object System.Drawing.Size(250, 20)
-	$createFolderCheckbox.Text = 'Create scans folder'
-	$createFolderCheckbox.Checked = $createFolder
-	$createFolderCheckbox.Add_CheckedChanged({ $script:createFolder = $createFolderCheckbox.Checked })
-
-	$setPermissionsCheckbox = New-Object System.Windows.Forms.CheckBox
-	$setPermissionsCheckbox.Location = New-Object System.Drawing.Point(10, 70)
-	$setPermissionsCheckbox.Size = New-Object System.Drawing.Size(250, 20)
-	$setPermissionsCheckbox.Text = 'Set permissions on scans folder'
-	$setPermissionsCheckbox.Checked = $setPermissions
-	$setPermissionsCheckbox.Add_CheckedChanged({ $script:setPermissions = $setPermissionsCheckbox.Checked })
-
-	$setShareCheckbox = New-Object System.Windows.Forms.CheckBox
-	$setShareCheckbox.Location = New-Object System.Drawing.Point(10, 90)
-	$setShareCheckbox.Size = New-Object System.Drawing.Size(250, 20)
-	$setShareCheckbox.Text = 'Set SMB share on scans folder'
-	$setShareCheckbox.Checked = $setShare
-	$setShareCheckbox.Add_CheckedChanged({ $script:setShare = $setShareCheckbox.Checked })
-
-	$createShortcutCheckbox = New-Object System.Windows.Forms.CheckBox
-	$createShortcutCheckbox.Location = New-Object System.Drawing.Point(10, 110)
-	$createShortcutCheckbox.Size = New-Object System.Drawing.Size(250, 20)
-	$createShortcutCheckbox.Text = 'Create desktop shortcut'
-	$createShortcutCheckbox.Checked = $createShortcut
-	$createShortcutCheckbox.Add_CheckedChanged({ $script:createShortcut = $createShortcutCheckbox.Checked })
-
-	$checkNetworkSettingsCheckbox = New-Object System.Windows.Forms.CheckBox
-	$checkNetworkSettingsCheckbox.Location = New-Object System.Drawing.Point(10, 130)
-	$checkNetworkSettingsCheckbox.Size = New-Object System.Drawing.Size(250, 20)
-	$checkNetworkSettingsCheckbox.Text = 'Check network settings'
-	$checkNetworkSettingsCheckbox.Checked = $checkNetworkSettings
-	$checkNetworkSettingsCheckbox.Add_CheckedChanged({ $script:checkNetworkSettings = $checkNetworkSettingsCheckbox.Checked })
-
-	# Create an OK button and add it to the form
-	$okButton = New-Object System.Windows.Forms.Button
-	$okButton.Location = New-Object System.Drawing.Point (150, 120)
-	$okButton.Size = New-Object System.Drawing.Size (75, 23)
-	$okButton.Text = 'OK'
-	$okButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
-	$settings.AcceptButton = $okButton
-	$settings.Controls.Add($okButton)
-
-	# Add checkbox to form
-	$settings.Controls.Add($createUserCheckbox)
-	$settings.Controls.Add($hideUserCheckbox)
-	$settings.Controls.Add($createFolderCheckbox)
-	$settings.Controls.Add($setPermissionsCheckbox)
-	$settings.Controls.Add($setShareCheckbox)
-	$settings.Controls.Add($createShortcutCheckbox)
-	$settings.Controls.Add($checkNetworkSettingsCheckbox)
-
-	# Show form
-	$settings.ShowDialog()
+	$window.ShowDialog() | Out-Null
 }
 
-# Create a new form with a title and a size
-$scanningSetupForm = New-Object System.Windows.Forms.Form
-$scanningSetupForm.Text = 'Scans.exe'
-$scanningSetupForm.Icon = [System.Drawing.Icon]::new($iconPath)
-$scanningSetupForm.Size = New-Object System.Drawing.Size (300, 200)
-$scanningSetupForm.StartPosition = 'CenterScreen'
+# --- WPF Setup Window ---
+[xml]$setupXaml = @"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        Title="Scans Setup" Height="210" Width="360" WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="75"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <TextBlock Grid.Row="0" Text="Username:" VerticalAlignment="Center" Margin="0,0,0,6"/>
+        <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" Name="txtUsername" Margin="0,0,0,6"/>
+        <TextBlock Grid.Row="1" Text="Password:" VerticalAlignment="Center" Margin="0,0,0,6"/>
+        <TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Name="txtPassword" Margin="0,0,0,6"/>
+        <TextBlock Grid.Row="2" Text="Local Dir:" VerticalAlignment="Center" Margin="0,0,0,6"/>
+        <TextBox Grid.Row="2" Grid.Column="1" Name="txtFolderPath" Margin="0,0,4,6"/>
+        <Button Grid.Row="2" Grid.Column="2" Name="btnBrowse" Content="..." Width="28" Margin="0,0,0,6"/>
+        <TextBlock Grid.Row="3" Text="SMB Share:" VerticalAlignment="Center" Margin="0,0,0,6"/>
+        <TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Name="txtShareName" Margin="0,0,0,6"/>
+        <StackPanel Grid.Row="5" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Name="btnSettings" Content="&#x2699;" Width="30" Height="28" Margin="0,0,8,0" FontSize="16" ToolTip="Settings"/>
+            <Button Name="btnOK" Content="OK" Width="75" Height="24" Margin="0,0,8,0" IsDefault="True"/>
+            <Button Name="btnCancel" Content="Cancel" Width="75" Height="24" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>
+"@
+$reader = [System.Xml.XmlNodeReader]::new($setupXaml)
+$setupWindow = [Windows.Markup.XamlReader]::Load($reader)
+$setupWindow.Icon = [System.Windows.Media.Imaging.BitmapImage]::new($script:iconUri)
 
-# Create a text box for the user to choose a custom username
-$scanUserLabel = New-Object	System.Windows.Forms.Label
-$scanUserLabel.Location = New-Object System.Drawing.Point (10, 10)
-$scanUserLabel.Size = New-Object System.Drawing.Size (70, 20)
-$scanUserLabel.Text = 'Username:'
-$scanningSetupForm.Controls.Add($scanUserLabel)
-$scanUserTextBox = New-Object System.Windows.Forms.TextBox
-$scanUserTextBox.Location = New-Object System.Drawing.Point (80, 10)
-$scanUserTextBox.Size = New-Object System.Drawing.Size (190, 20)
-$scanUserTextBox.Text = $scanUser
-$scanningSetupForm.Controls.Add($scanUserTextBox)
+$setupWindow.FindName('txtUsername').Text = $scanUser
+$setupWindow.FindName('txtPassword').Text = New-RandomPassword
+$setupWindow.FindName('txtFolderPath').Text = $folderPath
+$setupWindow.FindName('txtShareName').Text = $shareName
 
-# Create a text box for the user to choose a custom password
-$scanPassLabel = New-Object	System.Windows.Forms.Label
-$scanPassLabel.Location = New-Object System.Drawing.Point (10, 35)
-$scanPassLabel.Size = New-Object System.Drawing.Size (70, 20)
-$scanPassLabel.Text = 'Password:'
-$scanningSetupForm.Controls.Add($scanPassLabel)
-$scanPassTextBox = New-Object System.Windows.Forms.TextBox
-$scanPassTextBox.Location = New-Object System.Drawing.Point (80, 35)
-$scanPassTextBox.Size = New-Object System.Drawing.Size (190, 20)
-$scanPassTextBox.Text = New-RandomPassword
-$scanningSetupForm.Controls.Add($scanPassTextBox)
-
-# Create a text box for the user to choose a custom path
-$folderPathLabel = New-Object	System.Windows.Forms.Label
-$folderPathLabel.Location = New-Object System.Drawing.Point (10, 60)
-$folderPathLabel.Size = New-Object System.Drawing.Size (70, 20)
-$folderPathLabel.Text = 'Local Dir:'
-$scanningSetupForm.Controls.Add($folderPathLabel)
-$folderPathTextBox = New-Object System.Windows.Forms.TextBox
-$folderPathTextBox.Location = New-Object System.Drawing.Point (80, 60)
-$folderPathTextBox.Size = New-Object System.Drawing.Size (160, 20)
-$folderPathTextBox.Text = $folderPath
-$scanningSetupForm.Controls.Add($folderPathTextBox)
-
-# Create browse button for folder path
-$browseButton = New-Object System.Windows.Forms.Button
-$browseButton.Location = New-Object System.Drawing.Point (245, 59)
-$browseButton.Size = New-Object System.Drawing.Size (25, 22)
-$browseButton.Text = '...'
-$browseButton.Add_Click({
+$setupWindow.FindName('btnBrowse').Add_Click({
 	$folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
 	$folderBrowser.Description = "Select folder for scans"
-	$folderBrowser.SelectedPath = $folderPathTextBox.Text
+	$folderBrowser.SelectedPath = $setupWindow.FindName('txtFolderPath').Text
 	$folderBrowser.ShowNewFolderButton = $true
-	
 	if ($folderBrowser.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-		$folderPathTextBox.Text = $folderBrowser.SelectedPath
+		$setupWindow.FindName('txtFolderPath').Text = $folderBrowser.SelectedPath
 	}
 })
-$scanningSetupForm.Controls.Add($browseButton)
 
-# Create a text box for the user to choose a smb share
-$smbShareLabel = New-Object	System.Windows.Forms.Label
-$smbShareLabel.Location = New-Object System.Drawing.Point (10, 85)
-$smbShareLabel.Size = New-Object System.Drawing.Size (70, 20)
-$smbShareLabel.Text = 'SMB Share:'
-$scanningSetupForm.Controls.Add($smbShareLabel)
-$smbShareTextBox = New-Object System.Windows.Forms.TextBox
-$smbShareTextBox.Location = New-Object System.Drawing.Point (80, 85)
-$smbShareTextBox.Size = New-Object System.Drawing.Size (190, 20)
-$smbShareTextBox.Text = $shareName
-$scanningSetupForm.Controls.Add($smbShareTextBox)
+$setupWindow.FindName('btnSettings').Add_Click({ New-SettingsPage })
+$setupWindow.FindName('btnOK').Add_Click({ $setupWindow.DialogResult = $true })
 
-# Create an OK button and add it to the form
-$okButton = New-Object System.Windows.Forms.Button
-$okButton.Location = New-Object System.Drawing.Point (75, 120)
-$okButton.Size = New-Object System.Drawing.Size (75, 23)
-$okButton.Text = 'OK'
-$okButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
-$scanningSetupForm.AcceptButton = $okButton
-$scanningSetupForm.Controls.Add($okButton)
+$setupResult = $setupWindow.ShowDialog()
 
-# Create a Cancel button and add it to the form
-$cancelButton = New-Object System.Windows.Forms.Button
-$cancelButton.Location = New-Object System.Drawing.Point (150, 120)
-$cancelButton.Size = New-Object System.Drawing.Size (75, 23)
-$cancelButton.Text = 'Cancel'
-$cancelButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-$scanningSetupForm.CancelButton = $cancelButton
-$scanningSetupForm.Controls.Add($cancelButton)
-
-# Create settings button
-$settingsButton = New-Object System.Windows.Forms.Button
-$settingsButton.Location = New-Object System.Drawing.Point(10, 115)
-$settingsButton.Size = New-Object System.Drawing.Size(30, 30)
-
-# Load image from PNG file
-$imagePath = [System.IO.Path]::GetTempPath() + [System.IO.Path]::GetRandomFileName()
-Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/img/settings.png' -OutFile $imagePath | Out-Null
-$image = [System.Drawing.Image]::FromFile($imagePath)
-$thumbnailSize = New-Object System.Drawing.Size(($settingsButton.Width - 10), ($settingsButton.Height - 10))
-$thumbnailImage = $image.GetThumbnailImage($thumbnailSize.Width, $thumbnailSize.Height, $null, [System.IntPtr]::Zero)
-$image.Dispose()
-$settingsButton.Image = $thumbnailImage
-
-# Add click event to open settings
-$settingsButton.Add_Click({ New-SettingsPage })
-
-# Add settings button to form
-$scanningSetupForm.Controls.Add($settingsButton)
-
-# Show the form and wait for the user input
-$scanningSetupForm.Add_Shown({ $scanPassTextBox.Select() })
-$result = $scanningSetupForm.ShowDialog()
-
-# Check the result and get the text input
-if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-	$script:scanUser = $scanUserTextBox.Text
-	$script:scanPass = $scanPassTextBox.Text
-	$script:folderPath = $folderPathTextBox.Text
-	$script:shareName = $smbShareTextBox.Text
+if ($setupResult -eq $true) {
+	$script:scanUser = $setupWindow.FindName('txtUsername').Text
+	$script:scanPass = $setupWindow.FindName('txtPassword').Text
+	$script:folderPath = $setupWindow.FindName('txtFolderPath').Text
+	$script:shareName = $setupWindow.FindName('txtShareName').Text
 	Write-Verbose "Username: $script:scanUser `nPassword: $script:scanPass `nLocal Dir: $script:folderPath`nSMB Share: $script:shareName"
 }
 else {
 	Write-Verbose "User canceled scanning setup"
-	$scanningSetupForm.Close() | Out-Null
 	Exit 1
 }
 $details = New-Object System.Collections.ArrayList
@@ -515,104 +423,64 @@ if ($setPermissions) { $script:progressMax += 1 }
 if ($setShare) { $script:progressMax += 1 }
 if ($createShortcut) { $script:progressMax += 1 }
 if ($checkNetworkSettings) { $script:progressMax += 3 }
-function createLoadingForm($done) {
-	# Create a new form with a title and a size
-	$script:loadingForm = New-Object System.Windows.Forms.Form
-	$script:loadingForm.Text = 'Scans.exe - Loading...'
-	if ($done -eq $true) {
-		$script:loadingForm.Text = 'Scans.exe - ' + $script:details[0]
-	}
- 	else {
-		$script:loadingForm.Text = 'Scans.exe - Loading...'
-	}
-	$script:loadingForm.Icon = [System.Drawing.Icon]::new($iconPath)
-	$script:loadingForm.Size = New-Object System.Drawing.Size (300, 200)
-	$script:loadingForm.StartPosition = 'CenterScreen'
 
-	# Create a text box for the user to choose a custom password
-	$script:loadingText = New-Object System.Windows.Forms.Label
-	$script:loadingText.Location = New-Object System.Drawing.Point (10, 10)
-	$script:loadingText.Size = New-Object System.Drawing.Size (280, 20)
-	if ($done -eq $true) {
-		$script:loadingText.Text = $script:details[0]
-	}
- 	else {
-		$script:loadingText.Text = 'Loading...'
-	}
-	$script:loadingForm.Controls.Add($script:loadingText)
-	$script:progressBarObject = New-Object System.Windows.Forms.ProgressBar
-	$script:progressBarObject.Location = New-Object System.Drawing.Point (10, 30)
-	$script:progressBarObject.Size = New-Object System.Drawing.Size (265, 20)
-	$script:progressBarObject.Minimum = 0
-	$script:progressBarObject.Maximum = $script:progressMax
-	if ($done -eq $true) {
-		$script:progressBarObject.Value = $script:progressBarObject.Maximum
-	}
- 	else {
-		$script:progressBarObject.Value = 0
-	}
-	$script:loadingForm.Controls.Add($script:progressBarObject)
-	$script:detailsBox = New-Object System.Windows.Forms.ListBox
-	$script:detailsBox.ScrollAlwaysVisible = $true
-	$script:detailsBox.Location = New-Object System.Drawing.Point (10, 60)
-	$script:detailsBox.Size = New-Object System.Drawing.Size (265, 60)
-	if ($done -eq $true) {
-		foreach ($item in $script:details) {
-			$script:detailsBox.Items.Add($item) | Out-Null
-		}
-	}
-	$script:loadingForm.Controls.Add($script:detailsBox)
+[xml]$progressXaml = @"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        Title="Scans Setup - Loading..." Height="240" Width="360" WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock Grid.Row="0" Name="txtStatus" Text="Loading..." Margin="0,0,0,6"/>
+        <ProgressBar Grid.Row="1" Name="progressBar" Height="20" Minimum="0" Value="0" Margin="0,0,0,6"/>
+        <ListBox Grid.Row="2" Name="lstDetails" Margin="0,0,0,8"/>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Name="btnCopyPassword" Content="Copy Password" Width="110" Height="24" IsEnabled="False" Margin="0,0,8,0"/>
+            <Button Name="btnDone" Content="Done" Width="75" Height="24" IsEnabled="False"/>
+        </StackPanel>
+    </Grid>
+</Window>
+"@
+$reader = [System.Xml.XmlNodeReader]::new($progressXaml)
+$script:progressWindow = [Windows.Markup.XamlReader]::Load($reader)
+$script:progressWindow.Icon = [System.Windows.Media.Imaging.BitmapImage]::new($script:iconUri)
+$script:progressWindow.FindName('progressBar').Maximum = $script:progressMax
 
-	# Create a done button and add it to the form
-	$doneButton = New-Object System.Windows.Forms.Button
-	$doneButton.Location = New-Object System.Drawing.Point (150, 125)
-	$doneButton.Size = New-Object System.Drawing.Size (75, 23)
-	$doneButton.Text = 'Done'
-	if ($done -eq $true) {
-		$doneButton.Enabled = $true
+# Prevent closing during work
+$script:progressWindow.Add_Closing({
+	if (-not $script:progressWindow.FindName('btnDone').IsEnabled) {
+		$_.Cancel = $true
 	}
- 	else {
-		$doneButton.Enabled = $false
+})
+
+$script:progressWindow.FindName('btnCopyPassword').Add_Click({
+	if ($script:hasSetClipboard) {
+		Set-Clipboard -Value $scanPass
 	}
-	$doneButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
-	$loadingForm.AcceptButton = $doneButton
-	$loadingForm.Controls.Add($doneButton)
-	
-	# Create an OK button and add it to the form
-	$copyPasswordButton = New-Object System.Windows.Forms.Button
-	$copyPasswordButton.Location = New-Object System.Drawing.Point (50, 125)
-	$copyPasswordButton.Size = New-Object System.Drawing.Size (100, 23)
-	$copyPasswordButton.Text = 'Copy Password'
-	if ($done -eq $true -and $createUser -eq $true) {
-		$copyPasswordButton.Enabled = $true
+	else {
+		[System.Windows.Forms.Clipboard]::SetText($scanPass)
 	}
- 	else {
-		$copyPasswordButton.Enabled = $false
-	}
-	$copyPasswordButton.Add_Click({
-		if ($script:hasSetClipboard) {
-			Set-Clipboard -Value $scanPass
-		}
-		else {
-			[System.Windows.Forms.Clipboard]::SetText($scanPass)
-		}
-		Write-Verbose "Copied scan password to clipboard: $scanPass"
-		[System.Windows.MessageBox]::Show('Password has been copied to Clipboard')
-	})
-	$loadingForm.Controls.Add($copyPasswordButton)
-}
-$null = createLoadingForm $false
-$loadingForm.Show()
+	Write-Verbose "Copied scan password to clipboard: $scanPass"
+	[System.Windows.MessageBox]::Show('Password has been copied to Clipboard')
+})
+
+$script:progressWindow.FindName('btnDone').Add_Click({
+	$script:progressWindow.Close()
+})
+
+$script:progressWindow.Show()
 $percent = 0
 function Set-ProgressBar($text, $sleep = 250) {
-	$script:loadingText.Text = $text
+	$script:progressWindow.FindName('txtStatus').Text = $text
 	$script:percent += 1
-	$script:progressBarObject.Value = [Math]::Min($script:percent, $script:progressMax)
+	$script:progressWindow.FindName('progressBar').Value = [Math]::Min($script:percent, $script:progressMax)
 	$script:details.Insert(0, $text) | Out-Null
-	$script:text = $text
-	$script:detailsBox.Items.Insert(0, $text) | Out-Null
-	Write-Verbose  "Progress Text: $text"
-	[System.Windows.Forms.Application]::DoEvents()
+	$script:progressWindow.FindName('lstDetails').Items.Insert(0, $text) | Out-Null
+	Write-Verbose "Progress Text: $text"
+	[System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
 	Start-Sleep -Milliseconds $sleep
 }
 
@@ -671,10 +539,13 @@ if ($checkNetworkSettings -eq $true) {
 }
 
 Set-ProgressBar "Finished" 0
-$loadingForm.Close() | Out-Null
-createLoadingForm $true
-$result = $loadingForm.ShowDialog()
-if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-	$loadingForm.Close() | Out-Null
-	Exit 0
-}
+$script:progressWindow.Title = 'Scans Setup - Finished'
+$script:progressWindow.FindName('btnDone').IsEnabled = $true
+if ($createUser) { $script:progressWindow.FindName('btnCopyPassword').IsEnabled = $true }
+[System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
+
+# Block until user closes the progress window
+$frame = [System.Windows.Threading.DispatcherFrame]::new()
+$script:progressWindow.Add_Closed({ $frame.Continue = $false })
+[System.Windows.Threading.Dispatcher]::PushFrame($frame)
+Exit 0
