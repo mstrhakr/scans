@@ -46,7 +46,7 @@ if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adm
 			if (-not $scriptBody) { throw 'Could not capture script content for elevation.' }
 			[IO.File]::WriteAllText($scriptPath, $scriptBody, [Text.Encoding]::UTF8)
 		}
-		Start-Process -FilePath 'powershell.exe' -ArgumentList "-NoProfile -NoExit -ExecutionPolicy Bypass -File `"$scriptPath`"" -Verb RunAs
+		Start-Process -FilePath 'powershell.exe' -ArgumentList "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$scriptPath`"" -Verb RunAs
 	} catch {
 		Show-ErrorAndExit -Title 'Administrator Required' `
 			-Message "This script must be run as Administrator to create users, shares, and configure network settings.`n`n$($_.Exception.Message)" `
