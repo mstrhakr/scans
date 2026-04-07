@@ -427,7 +427,7 @@ if ($createUser -eq $true) {
 	}
 	else {
 		Set-ProgressBar "Updating Existing User"
-		Set-LocalUser -Name $scanUser -Password $($scanPass | ConvertTo-SecureString -AsPlainText -Force) -Description $description -AccountNeverExpires -PasswordNeverExpires $true -UserMayChangePassword $false -FullName "scans" | Out-Null
+		Set-LocalUser -Name $scanUser -Password $($scanPass | ConvertTo-SecureString -AsPlainText -Force) -Description $description | Out-Null
 	}
 }
 if ($hideUser -eq $true) {
