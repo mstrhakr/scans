@@ -25,6 +25,55 @@ function New-RandomPassword {
 	return -join ((1..$Length) | ForEach-Object { $chars[(Get-Random -Maximum $chars.Length)] })
 }
 
+function Initialize-ScanUser {
+	param(
+		[string]$Username,
+		[string]$Password,
+		[string]$Description,
+		[bool]$HideFromLogin,
+		[bool]$DomainJoined
+	)
+	$results = @()
+	$securePass = $Password | ConvertTo-SecureString -AsPlainText -Force
+	try {
+		if (![boolean](Get-LocalUser -Name $Username -ErrorAction SilentlyContinue)) {
+			New-LocalUser -Name $Username -Password $securePass -Description $Description -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword -FullName "scans" | Out-Null
+			$results += @{ Status = 'Success'; Message = "Created new user '$Username'"; Error = $null }
+		}
+		else {
+			Set-LocalUser -Name $Username -Password $securePass -Description $Description | Out-Null
+			$results += @{ Status = 'Success'; Message = "Updated existing user '$Username'"; Error = $null }
+		}
+	}
+	catch {
+		$results += @{ Status = 'Failed'; Message = "Failed to configure user '$Username'"; Error = $_.Exception.Message }
+	}
+
+	if ($HideFromLogin) {
+		$regPath = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\Userlist'
+		try {
+			$hideAccount = Get-ItemProperty -Path $regPath -Name $Username -ErrorAction SilentlyContinue
+			if ($hideAccount -and $hideAccount.($Username) -eq 0) {
+				$results += @{ Status = 'Success'; Message = 'User account is already hidden from login screen'; Error = $null }
+			}
+			elseif (!$DomainJoined) {
+				if (!(Test-Path $regPath)) {
+					New-Item -Path $regPath -Force | Out-Null
+				}
+				New-ItemProperty -Path $regPath -Name $Username -Value 0 -PropertyType 'DWord' -Force | Out-Null
+				$results += @{ Status = 'Success'; Message = 'Hidden user from login screen'; Error = $null }
+			}
+			else {
+				$results += @{ Status = 'Skipped'; Message = 'Computer is domain joined, skipping hide user'; Error = $null }
+			}
+		}
+		catch {
+			$results += @{ Status = 'Failed'; Message = 'Failed to hide user from login screen'; Error = $_.Exception.Message }
+		}
+	}
+	return $results
+}
+
 # Download icon
 $iconPath = 'C:\ProgramData\scans.ico'
 Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/img/scans.ico' -OutFile $iconPath | Out-Null
