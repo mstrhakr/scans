@@ -28,7 +28,7 @@ function New-SettingsPage ($test) {
 	# Create form
 	$settings = New-Object System.Windows.Forms.Form
 	$settings.Text = 'Settings'
-	$settings.Icon = $iconPath
+	$settings.Icon = [System.Drawing.Icon]::new($iconPath)
 	$settings.Size = New-Object System.Drawing.Size(300, 200)
 	$settings.StartPosition = 'CenterScreen'
 
@@ -190,7 +190,7 @@ function New-SettingsPage ($test) {
 # Create a new form with a title and a size
 $scanningSetupForm = New-Object System.Windows.Forms.Form
 $scanningSetupForm.Text = 'Scans.exe'
-$scanningSetupForm.Icon = $iconPath
+$scanningSetupForm.Icon = [System.Drawing.Icon]::new($iconPath)
 $scanningSetupForm.Size = New-Object System.Drawing.Size (300, 200)
 $scanningSetupForm.StartPosition = 'CenterScreen'
 
@@ -327,7 +327,7 @@ function createLoadingForm($done) {
  	else {
 		$script:loadingForm.Text = 'Scans.exe - Loading...'
 	}
-	$script:loadingForm.Icon = $iconPath
+	$script:loadingForm.Icon = [System.Drawing.Icon]::new($iconPath)
 	$script:loadingForm.Size = New-Object System.Drawing.Size (300, 200)
 	$script:loadingForm.StartPosition = 'CenterScreen'
 
