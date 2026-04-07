@@ -37,9 +37,14 @@ $script:Remediation = @{
 # 1. Require Administrator
 $currentPrincipal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
 if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-	Show-ErrorAndExit -Title 'Administrator Required' `
-		-Message 'This script must be run as Administrator to create users, shares, and configure network settings.' `
-		-Remediation $script:Remediation.NotAdmin
+	try {
+		Start-Process -FilePath 'powershell.exe' -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
+	} catch {
+		Show-ErrorAndExit -Title 'Administrator Required' `
+			-Message 'This script must be run as Administrator to create users, shares, and configure network settings.' `
+			-Remediation $script:Remediation.NotAdmin
+	}
+	Exit 0
 }
 
 # 2. Require PowerShell 3.0+
