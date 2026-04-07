@@ -122,6 +122,27 @@ function Initialize-ScanFolder {
 	return $results
 }
 
+function Initialize-ScanShare {
+	param(
+		[string]$ShareName,
+		[string]$FolderPath,
+		[string]$ScanUser
+	)
+	try {
+		if (!((Get-SmbShare).Name).toLower().Contains($ShareName)) {
+			New-SmbShare -Name $ShareName -Path $FolderPath -FullAccess $ScanUser | Out-Null
+			return @{ Status = 'Success'; Message = "Created SMB share '$ShareName'"; Error = $null }
+		}
+		else {
+			Grant-SmbShareAccess -Name $ShareName -AccountName $ScanUser -AccessRight Full -Force | Out-Null
+			return @{ Status = 'Success'; Message = "Updated SMB share permissions for '$ShareName'"; Error = $null }
+		}
+	}
+	catch {
+		return @{ Status = 'Failed'; Message = "Failed to configure SMB share '$ShareName'"; Error = $_.Exception.Message }
+	}
+}
+
 # Download icon
 $iconPath = 'C:\ProgramData\scans.ico'
 Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/img/scans.ico' -OutFile $iconPath | Out-Null
