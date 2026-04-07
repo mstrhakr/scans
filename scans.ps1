@@ -128,6 +128,40 @@ $script:themeResources = @"
     </Window.Resources>
 "@
 
+# --- DWM title bar theming (Win10 1809+ dark mode, Win11 22H2+ caption color) ---
+$script:hasDwmTheming = $false
+try {
+	Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class DwmHelper {
+    [DllImport("dwmapi.dll", PreserveSig = true)]
+    public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+}
+"@ -ErrorAction Stop
+	$script:hasDwmTheming = $true
+} catch { }
+
+function Set-WindowTheme($window) {
+	if (-not $script:hasDwmTheming) { return }
+	$window.Add_SourceInitialized({
+		try {
+			$helper = [System.Windows.Interop.WindowInteropHelper]::new($this)
+			$hwnd = $helper.Handle
+			# DWMWA_USE_IMMERSIVE_DARK_MODE = 20 (Win10 1809+)
+			$darkMode = if ($script:useDarkTheme) { 1 } else { 0 }
+			[DwmHelper]::DwmSetWindowAttribute($hwnd, 20, [ref]$darkMode, 4) | Out-Null
+			# DWMWA_CAPTION_COLOR = 35 (Win11 22H2+)
+			$bgHex = $script:thBg.TrimStart('#')
+			$r = [Convert]::ToInt32($bgHex.Substring(0,2), 16)
+			$g = [Convert]::ToInt32($bgHex.Substring(2,2), 16)
+			$b = [Convert]::ToInt32($bgHex.Substring(4,2), 16)
+			$colorRef = $r -bor ($g -shl 8) -bor ($b -shl 16)
+			[DwmHelper]::DwmSetWindowAttribute($hwnd, 35, [ref]$colorRef, 4) | Out-Null
+		} catch { }
+	})
+}
+
 $createUser = $true
 $hideUser = $true
 $createFolder = $true
@@ -424,7 +458,7 @@ $script:iconUri = [Uri]::new($iconPath)
 function New-SettingsPage {
 	[xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        Title="Settings" Height="270" Width="300" WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Title="Settings" Height="310" Width="340" WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
         Background="$($script:thBg)" Foreground="$($script:thFg)" FontFamily="Segoe UI" FontSize="13">
 $($script:themeResources)
     <StackPanel Margin="12">
@@ -442,6 +476,7 @@ $($script:themeResources)
 	$reader = [System.Xml.XmlNodeReader]::new($xaml)
 	$window = [Windows.Markup.XamlReader]::Load($reader)
 	$window.Icon = [System.Windows.Media.Imaging.BitmapImage]::new($script:iconUri)
+	Set-WindowTheme $window
 
 	$window.FindName('chkCreateUser').IsChecked = $script:createUser
 	$window.FindName('chkHideUser').IsChecked = $script:hideUser
@@ -468,7 +503,7 @@ $($script:themeResources)
 # --- WPF Setup Window ---
 [xml]$setupXaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        Title="Scans Setup" Height="210" Width="360" WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Title="Scans Setup" Height="250" Width="440" WindowStartupLocation="CenterScreen" ResizeMode="NoResize" ShowInTaskbar="True"
         Background="$($script:thBg)" Foreground="$($script:thFg)" FontFamily="Segoe UI" FontSize="13">
 $($script:themeResources)
     <Grid Margin="12">
@@ -505,6 +540,7 @@ $($script:themeResources)
 $reader = [System.Xml.XmlNodeReader]::new($setupXaml)
 $setupWindow = [Windows.Markup.XamlReader]::Load($reader)
 $setupWindow.Icon = [System.Windows.Media.Imaging.BitmapImage]::new($script:iconUri)
+Set-WindowTheme $setupWindow
 
 $setupWindow.FindName('txtUsername').Text = $scanUser
 $setupWindow.FindName('txtPassword').Text = New-RandomPassword
@@ -549,7 +585,7 @@ if ($checkNetworkSettings) { $script:progressMax += 3 }
 
 [xml]$progressXaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        Title="Scans Setup - Loading..." Height="240" Width="360" WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Title="Scans Setup - Loading..." Height="300" Width="440" WindowStartupLocation="CenterScreen" ResizeMode="NoResize" ShowInTaskbar="True"
         Background="$($script:thBg)" Foreground="$($script:thFg)" FontFamily="Segoe UI" FontSize="13">
 $($script:themeResources)
     <Grid Margin="12">
@@ -572,6 +608,7 @@ $($script:themeResources)
 $reader = [System.Xml.XmlNodeReader]::new($progressXaml)
 $script:progressWindow = [Windows.Markup.XamlReader]::Load($reader)
 $script:progressWindow.Icon = [System.Windows.Media.Imaging.BitmapImage]::new($script:iconUri)
+Set-WindowTheme $script:progressWindow
 $script:progressWindow.FindName('progressBar').Maximum = $script:progressMax
 
 # Prevent closing during work
