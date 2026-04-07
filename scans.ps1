@@ -8,7 +8,6 @@
 # Load the .NET Framework classes
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
-Add-Type -AssemblyName System.Web
 Add-Type -AssemblyName PresentationFramework
 $ProgressPreference = 'SilentlyContinue'
 
@@ -24,7 +23,7 @@ $checkNetworkSettings = $true
 $iconPath = 'C:\ProgramData\scans.ico'
 Invoke-WebRequest 'https://raw.githubusercontent.com/mstrhakr/scans/main/img/scans.ico' -OutFile $iconPath | Out-Null
 
-function New-SettingsPage ($test) {
+function New-SettingsPage {
 	# Create form
 	$settings = New-Object System.Windows.Forms.Form
 	$settings.Text = 'Settings'
