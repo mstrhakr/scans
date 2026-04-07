@@ -348,7 +348,7 @@ function Initialize-ScanShare {
 	)
 	try {
 		if ($script:hasSmbShareCmdlets) {
-			if (!((Get-SmbShare).Name).toLower().Contains($ShareName)) {
+			if (!((Get-SmbShare).Name).toLower().Contains($ShareName.toLower())) {
 				New-SmbShare -Name $ShareName -Path $FolderPath -FullAccess $ScanUser | Out-Null
 				return @{ Status = 'Success'; Message = "Created SMB share '$ShareName'"; Error = $null }
 			}
