@@ -511,10 +511,11 @@ if ($createShortcut -eq $true) {
 
 if ($checkNetworkSettings -eq $true) {
 	# Set network profile to Private if not domain joined.
-	$networkCategory = (Get-NetConnectionProfile).NetworkCategory
+	$networkProfile = Get-NetConnectionProfile | Select-Object -First 1
+	$networkCategory = $networkProfile.NetworkCategory
 	if (!$domainJoined -and $networkCategory -ne 'Private') {
 		try {
-			Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory Private
+			$networkProfile | Set-NetConnectionProfile -NetworkCategory Private
 			Set-ProgressBar "Set Network Category to Private"
 		}
 		catch {
@@ -535,7 +536,7 @@ if ($checkNetworkSettings -eq $true) {
 	} 
 
 	# Check network category again in case it was changed
-	$networkCategory = (Get-NetConnectionProfile).NetworkCategory
+	$networkCategory = (Get-NetConnectionProfile | Select-Object -First 1).NetworkCategory
 
 	# Check if network file and printer sharing is enabled
 	$sharingEnabled = Get-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound | Where-Object { $_.Enabled -eq 'True' -and $_.Profile -eq $networkCategory.ToString() }
