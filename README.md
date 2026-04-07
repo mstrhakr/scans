@@ -62,6 +62,10 @@ First choose the inputs — the password is randomly generated with a cryptograp
 
 ![Setup](img/scans-setup.png)
 
+The UI automatically matches your Windows theme (light or dark).
+
+![Setup Light Theme](img/scans-setup-theme.png)
+
 Click the gear icon to enable/disable individual steps.
 
 ![Settings](img/scans-settings.png)
