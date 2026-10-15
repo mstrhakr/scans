@@ -14,14 +14,29 @@ Add-Type -AssemblyName PresentationFramework
 $ProgressPreference = 'SilentlyContinue'
 
 # --- Error popup helper ---
+function Show-ErrorPopup {
+	param(
+		[string]$Title,
+		[string]$Message,
+		[string]$Remediation,
+		$Owner
+	)
+	$body = "$Message`n`nHow to fix:`n$Remediation"
+	if ($Owner) {
+		[System.Windows.MessageBox]::Show($Owner, $body, $Title, 'OK', 'Error') | Out-Null
+	}
+	else {
+		[System.Windows.MessageBox]::Show($body, $Title, 'OK', 'Error') | Out-Null
+	}
+}
+
 function Show-ErrorAndExit {
 	param(
 		[string]$Title,
 		[string]$Message,
 		[string]$Remediation
 	)
-	$body = "$Message`n`nHow to fix:`n$Remediation"
-	[System.Windows.MessageBox]::Show($body, $Title, 'OK', 'Error') | Out-Null
+	Show-ErrorPopup -Title $Title -Message $Message -Remediation $Remediation
 	Exit 1
 }
 
@@ -33,6 +48,7 @@ $script:Remediation = @{
 	TrustRelation  = "The domain trust is broken. Run the following from an admin prompt:`nTest-ComputerSecureChannel -Repair -Credential (Get-Credential)`nOr rejoin the machine to the domain."
 	AccessDenied   = "The current user does not have permission. Ensure you are running as Administrator and the folder is not read-only."
 	ShareInUse     = "Close any open files or Explorer windows pointing to the share, then try again."
+	PasswordPolicy = "Run setup again and use the generated password or enter a longer password with uppercase and lowercase letters, numbers, and symbols. Avoid including the username.`nLocal or domain Group Policy can enforce minimum length, complexity, password history, or additional restrictions. The generated password is not guaranteed to meet every policy. If it is still rejected, ask your administrator for the effective password requirements; do not disable the policy."
 }
 
 # --- Preflight checks ---
@@ -262,11 +278,11 @@ function Initialize-ScanUser {
 		if ($script:hasLocalAccounts) {
 			$securePass = $Password | ConvertTo-SecureString -AsPlainText -Force
 			if (![boolean](Get-LocalUser -Name $Username -ErrorAction SilentlyContinue)) {
-				New-LocalUser -Name $Username -Password $securePass -Description $Description -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword -FullName "scans" | Out-Null
+				New-LocalUser -Name $Username -Password $securePass -Description $Description -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword -FullName "scans" -ErrorAction Stop | Out-Null
 				$results += @{ Status = 'Success'; Message = "Created new user '$Username'"; Error = $null }
 			}
 			else {
-				Set-LocalUser -Name $Username -Password $securePass -Description $Description | Out-Null
+				Set-LocalUser -Name $Username -Password $securePass -Description $Description -ErrorAction Stop | Out-Null
 				$results += @{ Status = 'Success'; Message = "Updated existing user '$Username'"; Error = $null }
 			}
 		}
@@ -276,20 +292,38 @@ function Initialize-ScanUser {
 			$safePass = $Password -replace '"', ''
 			$safeDesc = $Description -replace '"', ''
 			$existingUser = net user $safeUser 2>&1
-			if ($LASTEXITCODE -ne 0) {
-				net user $safeUser $safePass /add /fullname:"scans" /comment:"$safeDesc" /active:yes /expires:never /passwordchg:no | Out-Null
+			$userExists = $LASTEXITCODE -eq 0
+			if (-not $userExists) {
+				$userOutput = net user $safeUser $safePass /add /fullname:"scans" /comment:"$safeDesc" /active:yes /expires:never /passwordchg:no 2>&1
+			}
+			else {
+				$userOutput = net user $safeUser $safePass /comment:"$safeDesc" 2>&1
+			}
+			$userExitCode = $LASTEXITCODE
+			if ($userExitCode -ne 0) {
+				$errorText = ($userOutput | Out-String).Trim()
+				$errorId = 'LocalUserCommandFailed'
+				# NET.EXE can return exit code 2 while reporting system error 2245 in its output.
+				if ($userExitCode -eq 2245 -or $errorText -match '\b2245\b') {
+					$errorId = 'InvalidPassword'
+				}
+				$exception = New-Object System.InvalidOperationException("net user failed (exit code $userExitCode). $errorText")
+				$errorRecord = New-Object System.Management.Automation.ErrorRecord($exception, $errorId, [System.Management.Automation.ErrorCategory]::InvalidOperation, $Username)
+				throw $errorRecord
+			}
+			if (-not $userExists) {
 				# Set password to never expire via wmic
 				wmic useraccount where "Name='$safeUser'" set PasswordExpires=FALSE 2>&1 | Out-Null
 				$results += @{ Status = 'Success'; Message = "Created new user '$Username' (net user)"; Error = $null }
 			}
 			else {
-				net user $safeUser $safePass /comment:"$safeDesc" | Out-Null
 				$results += @{ Status = 'Success'; Message = "Updated existing user '$Username' (net user)"; Error = $null }
 			}
 		}
 	}
 	catch {
-		$results += @{ Status = 'Failed'; Message = "Failed to configure user '$Username'"; Error = $_.Exception.Message }
+		$results += @{ Status = 'Failed'; Message = "Failed to configure user '$Username'"; Error = $_.Exception.Message; ErrorId = $_.FullyQualifiedErrorId; AccountSetupFailed = $true }
+		return $results
 	}
 
 	if ($HideFromLogin) {
@@ -301,9 +335,9 @@ function Initialize-ScanUser {
 			}
 			elseif (!$DomainJoined) {
 				if (!(Test-Path $regPath)) {
-					New-Item -Path $regPath -Force | Out-Null
+					New-Item -Path $regPath -Force -ErrorAction Stop | Out-Null
 				}
-				New-ItemProperty -Path $regPath -Name $Username -Value 0 -PropertyType 'DWord' -Force | Out-Null
+				New-ItemProperty -Path $regPath -Name $Username -Value 0 -PropertyType 'DWord' -Force -ErrorAction Stop | Out-Null
 				$results += @{ Status = 'Success'; Message = 'Hidden user from login screen'; Error = $null }
 			}
 			else {
@@ -329,7 +363,7 @@ function Initialize-ScanFolder {
 	# Create folder if missing
 	try {
 		if (!(Test-Path -Path $FolderPath)) {
-			New-Item -Path $FolderPath -ItemType Directory -Force | Out-Null
+			New-Item -Path $FolderPath -ItemType Directory -Force -ErrorAction Stop | Out-Null
 			$results += @{ Status = 'Success'; Message = "Created folder at $FolderPath"; Error = $null }
 		}
 		else {
@@ -344,7 +378,7 @@ function Initialize-ScanFolder {
 	# Set permissions
 	if ($SetPermissions) {
 		try {
-			$folderAcl = Get-Acl $FolderPath
+			$folderAcl = Get-Acl $FolderPath -ErrorAction Stop
 			$rule = New-Object System.Security.AccessControl.FileSystemAccessRule($Env:UserName, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
 			$folderAcl.SetAccessRule($rule)
 			$rule = New-Object System.Security.AccessControl.FileSystemAccessRule($ScanUser, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
@@ -355,7 +389,7 @@ function Initialize-ScanFolder {
 				$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Domain Users", "Modify", "ContainerInherit,ObjectInherit", "None", "Allow")
 				$folderAcl.SetAccessRule($rule)
 			}
-			Set-Acl $FolderPath $folderAcl
+			Set-Acl $FolderPath $folderAcl -ErrorAction Stop
 			$results += @{ Status = 'Success'; Message = 'Folder permissions set'; Error = $null }
 		}
 		catch {
@@ -373,23 +407,25 @@ function Initialize-ScanShare {
 	)
 	try {
 		if ($script:hasSmbShareCmdlets) {
-			if (!((Get-SmbShare).Name).toLower().Contains($ShareName.toLower())) {
-				New-SmbShare -Name $ShareName -Path $FolderPath -FullAccess $ScanUser | Out-Null
+			if (-not (Get-SmbShare -ErrorAction Stop | Where-Object { $_.Name -eq $ShareName })) {
+				New-SmbShare -Name $ShareName -Path $FolderPath -FullAccess $ScanUser -ErrorAction Stop | Out-Null
 				return @{ Status = 'Success'; Message = "Created SMB share '$ShareName'"; Error = $null }
 			}
 			else {
-				Grant-SmbShareAccess -Name $ShareName -AccountName $ScanUser -AccessRight Full -Force | Out-Null
+				Grant-SmbShareAccess -Name $ShareName -AccountName $ScanUser -AccessRight Full -Force -ErrorAction Stop | Out-Null
 				return @{ Status = 'Success'; Message = "Updated SMB share permissions for '$ShareName'"; Error = $null }
 			}
 		}
 		else {
 			$existing = net share $ShareName 2>&1
 			if ($LASTEXITCODE -ne 0) {
-				net share "$ShareName=$FolderPath" "/grant:$ScanUser,FULL" | Out-Null
+				$shareOutput = net share "$ShareName=$FolderPath" "/grant:$ScanUser,FULL" 2>&1
+				if ($LASTEXITCODE -ne 0) { throw "net share failed (exit code $LASTEXITCODE). $($shareOutput | Out-String)" }
 				return @{ Status = 'Success'; Message = "Created SMB share '$ShareName' (net share)"; Error = $null }
 			}
 			else {
-				net share "$ShareName=$FolderPath" "/grant:$ScanUser,FULL" /yes | Out-Null
+				$shareOutput = net share "$ShareName=$FolderPath" "/grant:$ScanUser,FULL" /yes 2>&1
+				if ($LASTEXITCODE -ne 0) { throw "net share failed (exit code $LASTEXITCODE). $($shareOutput | Out-String)" }
 				return @{ Status = 'Success'; Message = "Updated SMB share '$ShareName' (net share)"; Error = $null }
 			}
 		}
@@ -430,7 +466,7 @@ function Set-NetworkConfiguration {
 		$networkCategory = $networkProfile.NetworkCategory
 		if (!$DomainJoined -and $networkCategory -ne 'Private') {
 			try {
-				$networkProfile | Set-NetConnectionProfile -NetworkCategory Private
+				$networkProfile | Set-NetConnectionProfile -NetworkCategory Private -ErrorAction Stop
 				$results += @{ Status = 'Success'; Message = 'Set Network Category to Private'; Error = $null }
 			}
 			catch {
@@ -451,7 +487,8 @@ function Set-NetworkConfiguration {
 		# Legacy path: netsh (Win 7)
 		if (!$DomainJoined) {
 			try {
-				netsh advfirewall set currentprofile state on 2>&1 | Out-Null
+				$networkOutput = netsh advfirewall set currentprofile state on 2>&1
+				if ($LASTEXITCODE -ne 0) { throw "netsh failed (exit code $LASTEXITCODE). $($networkOutput | Out-String)" }
 				$results += @{ Status = 'Success'; Message = 'Ensured firewall profile is active (netsh)'; Error = $null }
 			}
 			catch {
@@ -471,7 +508,7 @@ function Set-NetworkConfiguration {
 		$sharingEnabled = Get-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound | Where-Object { $_.Enabled -eq 'True' -and $_.Profile -eq $firewallProfile }
 		if ($sharingEnabled.count -eq 0) {
 			try {
-				Set-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound -Enabled True -Profile $firewallProfile
+				Set-NetFirewallRule -DisplayGroup "File and Printer Sharing" -Direction Inbound -Enabled True -Profile $firewallProfile -ErrorAction Stop
 				$results += @{ Status = 'Success'; Message = 'Network file and printer sharing has been enabled.'; Error = $null }
 			}
 			catch {
@@ -486,7 +523,7 @@ function Set-NetworkConfiguration {
 		$discoveryEnabled = Get-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound | Where-Object { $_.Enabled -eq 'True' -and $_.Profile -eq $firewallProfile }
 		if ($discoveryEnabled.count -eq 0) {
 			try {
-				Set-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound -Enabled True -Profile $firewallProfile
+				Set-NetFirewallRule -DisplayGroup "Network Discovery" -Direction Inbound -Enabled True -Profile $firewallProfile -ErrorAction Stop
 				$results += @{ Status = 'Success'; Message = 'Network Discovery has been enabled.'; Error = $null }
 			}
 			catch {
@@ -500,14 +537,16 @@ function Set-NetworkConfiguration {
 	else {
 		# Legacy path: netsh advfirewall (Win 7)
 		try {
-			netsh advfirewall firewall set rule group="File and Printer Sharing" new enable=Yes 2>&1 | Out-Null
+			$networkOutput = netsh advfirewall firewall set rule group="File and Printer Sharing" new enable=Yes 2>&1
+			if ($LASTEXITCODE -ne 0) { throw "netsh failed (exit code $LASTEXITCODE). $($networkOutput | Out-String)" }
 			$results += @{ Status = 'Success'; Message = 'Network file and printer sharing has been enabled (netsh).'; Error = $null }
 		}
 		catch {
 			$results += @{ Status = 'Failed'; Message = 'Failed to enable Network File and Printer Sharing.'; Error = $_.Exception.Message }
 		}
 		try {
-			netsh advfirewall firewall set rule group="Network Discovery" new enable=Yes 2>&1 | Out-Null
+			$networkOutput = netsh advfirewall firewall set rule group="Network Discovery" new enable=Yes 2>&1
+			if ($LASTEXITCODE -ne 0) { throw "netsh failed (exit code $LASTEXITCODE). $($networkOutput | Out-String)" }
 			$results += @{ Status = 'Success'; Message = 'Network Discovery has been enabled (netsh).'; Error = $null }
 		}
 		catch {
@@ -732,6 +771,7 @@ $script:hasErrors = $false
 
 function Get-ErrorRemediation([string]$errorText) {
 	switch -Regex ($errorText) {
+		'InvalidPassword|password.*(policy|requirements)|\b2245\b' { return $script:Remediation.PasswordPolicy }
 		'trust relationship'        { return $script:Remediation.TrustRelation }
 		'Access is denied|access denied|UnauthorizedAccess' { return $script:Remediation.AccessDenied }
 		'share.*in use|being used'  { return $script:Remediation.ShareInUse }
@@ -755,8 +795,18 @@ function Show-StepResult($result) {
 	if ($result.Error) {
 		$script:hasErrors = $true
 		Set-ProgressBar "  Error: $($result.Error)" 0
-		$tip = Get-ErrorRemediation $result.Error
-		if ($tip) { Set-ProgressBar "  Tip: $tip" 0 }
+		$tip = Get-ErrorRemediation "$($result.ErrorId) $($result.Error)"
+		if (-not $tip) {
+			$tip = 'Review the error details and correct the reported issue, then run setup again. If the problem persists, share the error details with your administrator.'
+		}
+		Set-ProgressBar "  Tip: $tip" 0
+		$title = 'Scans Setup - Step Failed'
+		$message = "$($result.Message)`n`n$($result.Error)"
+		if ($result.ErrorId -match 'InvalidPassword') {
+			$title = 'Scan Account Password Rejected'
+			$message = "Windows rejected the password for the scan account. It may not meet the effective local or domain password policy.`n`nAccount-dependent steps will be skipped, and the rejected password will not be offered for copying."
+		}
+		Show-ErrorPopup -Owner $script:progressWindow -Title $title -Message $message -Remediation $tip
 	}
 }
 
@@ -771,21 +821,28 @@ else {
 $domainJoined = $computerDetails.PartOfDomain
 
 # Create/update scans user account and hide from login screen
+$scanUserConfigured = $true
 if ($createUser -eq $true) {
 	$userResults = Initialize-ScanUser -Username $scanUser -Password $scanPass -Description $description -HideFromLogin $hideUser -DomainJoined $domainJoined
 	foreach ($r in $userResults) { Show-StepResult $r }
+	$scanUserConfigured = @($userResults | Where-Object { $_.AccountSetupFailed }).Count -eq 0
 }
 elseif ($hideUser -eq $true) {
 	$userResults = Initialize-ScanUser -Username $scanUser -Password $scanPass -Description $description -HideFromLogin $true -DomainJoined $domainJoined
 	foreach ($r in $userResults) { Show-StepResult $r }
+	$scanUserConfigured = @($userResults | Where-Object { $_.AccountSetupFailed }).Count -eq 0
+}
+
+if (-not $scanUserConfigured) {
+	Show-StepResult @{ Status = 'Skipped'; Message = 'Skipped scan-user folder permissions and SMB share configuration because account setup failed'; Error = $null }
 }
 
 if ($createFolder -eq $true) {
-	$folderResults = Initialize-ScanFolder -FolderPath $folderPath -ScanUser $scanUser -SetPermissions $setPermissions -DomainJoined $domainJoined
+	$folderResults = Initialize-ScanFolder -FolderPath $folderPath -ScanUser $scanUser -SetPermissions ($setPermissions -and $scanUserConfigured) -DomainJoined $domainJoined
 	foreach ($r in $folderResults) { Show-StepResult $r }
 }
 
-if ($setShare -eq $true) {
+if ($setShare -eq $true -and $scanUserConfigured) {
 	$shareResult = Initialize-ScanShare -ShareName $shareName -FolderPath $folderPath -ScanUser $scanUser
 	Show-StepResult $shareResult
 }
@@ -810,7 +867,7 @@ else {
 	$script:progressWindow.Title = 'Scans Setup - Finished'
 }
 $script:progressWindow.FindName('btnDone').IsEnabled = $true
-if ($createUser) { $script:progressWindow.FindName('btnCopyPassword').IsEnabled = $true }
+if ($createUser -and $scanUserConfigured) { $script:progressWindow.FindName('btnCopyPassword').IsEnabled = $true }
 [System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
 
 # Block until user closes the progress window
