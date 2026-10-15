@@ -579,6 +579,8 @@ Describe 'WPF window markup' {
 		foreach ($name in @('txtUsername', 'txtPassword', 'txtFolderPath', 'txtShareName', 'btnOK', 'btnCancel', 'btnSettings')) {
 			$setup.FindName($name) | Should Not BeNullOrEmpty
 		}
+		$setup.FindName('txtSettingsIconFallback') | Should Not BeNullOrEmpty
+		$setup.FindName('rectSettingsIcon').Visibility | Should Be ([System.Windows.Visibility]::Collapsed)
 		$progress.FindName('btnDone').IsEnabled | Should Be $false
 		$progress.FindName('btnCopyPassword').IsEnabled | Should Be $false
 		$setup.Close()

@@ -576,7 +576,9 @@ try {
 	$bmp.EndInit()
 	$bmp.Freeze()
 	$script:settingsIconBitmap = $bmp
-} catch { }
+} catch {
+	Write-Warning "Could not load the settings gear image; using the built-in fallback. $($_.Exception.Message)"
+}
 
 # --- WPF Settings Dialog ---
 function New-SettingsPage {
@@ -655,7 +657,11 @@ $($script:themeResources)
         <TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Name="txtShareName" Margin="0,0,0,6"/>
         <StackPanel Grid.Row="5" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Name="btnSettings" Width="30" Height="28" Margin="0,0,8,0" ToolTip="Settings">
-                <Rectangle Name="rectSettingsIcon" Width="16" Height="16" Fill="$($script:thBtnText)"/>
+                <Grid Width="18" Height="18">
+                    <TextBlock Name="txtSettingsIconFallback" Text="&#x2699;" FontFamily="Segoe UI Symbol" FontSize="18"
+                               Foreground="$($script:thBtnText)" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <Rectangle Name="rectSettingsIcon" Width="16" Height="16" Fill="$($script:thBtnText)" Visibility="Collapsed"/>
+                </Grid>
             </Button>
             <Button Name="btnOK" Content="OK" Width="75" Height="24" Margin="0,0,8,0" IsDefault="True"/>
             <Button Name="btnCancel" Content="Cancel" Width="75" Height="24" IsCancel="True"/>
@@ -671,7 +677,10 @@ Set-WindowTheme $setupWindow
 # Apply gear icon as OpacityMask so it picks up the theme fill color
 if ($script:settingsIconBitmap) {
 	$brush = [System.Windows.Media.ImageBrush]::new($script:settingsIconBitmap)
-	$setupWindow.FindName('rectSettingsIcon').OpacityMask = $brush
+	$settingsIcon = $setupWindow.FindName('rectSettingsIcon')
+	$settingsIcon.OpacityMask = $brush
+	$settingsIcon.Visibility = 'Visible'
+	$setupWindow.FindName('txtSettingsIconFallback').Visibility = 'Collapsed'
 }
 
 $setupWindow.FindName('txtUsername').Text = $scanUser
