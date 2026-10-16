@@ -21,6 +21,30 @@ test('includes local PrintMaster branding, a home link, and the canonical Scans 
   assert.match(html, /<main id="main">/);
 });
 
+test('provides cross-site navigation and working setup anchors without JavaScript', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'site', 'index.html'), 'utf8');
+  assert.match(html, /href="https:\/\/printmaster\.work\/downloads"/);
+  assert.match(html, /href="https:\/\/docs\.printmaster\.work\/"/);
+  assert.match(html, /href="https:\/\/docs\.printmaster\.work\/guides\/manual-smb-setup\/"/);
+  assert.match(html, /href="\.\/" aria-current="page">Scans/);
+  assert.match(html, /<nav aria-label="PrintMaster sites">/);
+  assert.match(html, /<noscript>/);
+  const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
+  assert.equal(new Set(ids).size, ids.length, 'element IDs must be unique');
+  for (const match of html.matchAll(/href="#([^"]+)"/g)) {
+    assert.ok(ids.includes(match[1]), `missing anchor ${match[1]}`);
+  }
+  for (const id of ['setup-command', 'setup-command-text', 'stable-status', 'release-list']) {
+    assert.ok(ids.includes(id), `missing release/copy hook ${id}`);
+  }
+  for (const match of html.matchAll(/(?:src|href)="([^"#]+)"/g)) {
+    if (/^https?:/.test(match[1])) continue;
+    if (match[1] === 'releases.json') continue;
+    const relative = match[1] === 'scans.ps1' || match[1].startsWith('img/') ? match[1] : path.join('site', match[1]);
+    assert.ok(fs.existsSync(path.join(__dirname, '..', relative)), `missing site asset ${match[1]}`);
+  }
+});
+
 class Element {
   constructor() { this.children = []; this.textContent = ''; this.attributes = {}; this.listeners = {}; }
   append(...children) { this.children.push(...children); }
