@@ -1,14 +1,15 @@
 param(
 	[Parameter(Mandatory)][string]$Version,
 	[Parameter(Mandatory)][string]$SourceCommit,
-	[Parameter(Mandatory)][string]$OutputDirectory
+	[Parameter(Mandatory)][string]$OutputDirectory,
+	[string]$SourceDirectory = (Split-Path $PSScriptRoot -Parent)
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Release.Common.ps1')
 Assert-ReleaseVersion $Version
 if ($SourceCommit -notmatch '^[a-f0-9]{40}$') { throw 'SourceCommit must be a full Git commit SHA.' }
 if (Test-Path -LiteralPath $OutputDirectory) { throw 'Package output directory must not already exist.' }
-$root = Split-Path $PSScriptRoot -Parent
+$root = $SourceDirectory
 $sourcePath = if (Test-Path (Join-Path $root 'src\scans.ps1')) { 'src/scans.ps1' } else { 'scans.ps1' }
 $source = Join-Path $root ($sourcePath -replace '/', '\')
 New-Item -Path $OutputDirectory -ItemType Directory | Out-Null

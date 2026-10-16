@@ -1,37 +1,59 @@
 name: Prepare release
 
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       version:
-        description: Stable SemVer tag (for example v2.1.0)
+        description: Existing stable SemVer tag to retry (for example v2.1.0)
         required: true
         type: string
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
-  group: prepare-release
+  group: prepare-release-${{ github.event_name == 'push' && github.ref_name || inputs.version }}
   cancel-in-progress: false
 
 jobs:
-  test:
-    if: github.repository == 'printmaster-org/scans' && github.ref == 'refs/heads/main'
-    uses: ./.github/workflows/ci.yml
-
   draft:
-    needs: test
+    if: >-
+      github.repository == 'Printmaster-Org/scans' &&
+      (github.event_name == 'push' || github.ref == 'refs/heads/main')
     runs-on: windows-latest
+    timeout-minutes: 25
     permissions:
       contents: write
+      actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Resolve tag and reuse existing main CI
+        id: source
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ github.event_name == 'push' && github.ref_name || inputs.version }}
+        run: |
+          . .\tools\Release.Common.ps1
+          Assert-ReleaseVersion $env:RELEASE_VERSION
+          Assert-CommitCI -SourceCommit $env:GITHUB_SHA
+          $commit = gh api "repos/$env:GITHUB_REPOSITORY/commits/$env:RELEASE_VERSION" --jq .sha
+          if ($LASTEXITCODE -ne 0) { throw 'Could not resolve the existing release tag.' }
+          Assert-CommitCI -SourceCommit $commit
+          "commit=$commit" >> $env:GITHUB_OUTPUT
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ steps.source.outputs.commit }}
+          path: release-source
       - name: Prepare tested assets and editable draft notes
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_VERSION: ${{ github.event_name == 'push' && github.ref_name || inputs.version }}
+          SOURCE_COMMIT: ${{ steps.source.outputs.commit }}
         run: |
-          .\tools\New-ReleasePackage.ps1 -Version $env:RELEASE_VERSION -SourceCommit $env:GITHUB_SHA -OutputDirectory package
-          .\tools\New-DraftRelease.ps1 -Version $env:RELEASE_VERSION -SourceCommit $env:GITHUB_SHA -PackageDirectory package
+          .\tools\New-ReleasePackage.ps1 -Version $env:RELEASE_VERSION -SourceCommit $env:SOURCE_COMMIT -SourceDirectory release-source -OutputDirectory package
+          .\tools\New-DraftRelease.ps1 -Version $env:RELEASE_VERSION -SourceCommit $env:SOURCE_COMMIT -PackageDirectory package

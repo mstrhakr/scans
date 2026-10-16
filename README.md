@@ -96,11 +96,13 @@ Startup failures already stop setup with an error popup. Failed setup steps also
 
 During preparation, the old Quick Start URL still follows `main`. The new Pages endpoint uses manually published, versioned GitHub Releases instead. Merging code does not deploy to the new endpoint.
 
-The [Prepare release workflow](.github/workflows/release.yml) tests the selected `main` commit and creates a draft release with generated PR-based notes, a pinned command, the utility, metadata, and SHA-256. Review/edit the notes, manually test on a disposable Windows VM, then publish the draft in GitHub. User publication triggers the [Pages workflow](.github/workflows/pages.yml), which verifies published assets against their tagged source and deploys the site plus manifest as generated artifacts. No bot pushes or protection bypasses are needed.
+Pushing a stable SemVer tag starts the [Prepare release workflow](.github/workflows/release.yml). It reuses successful main-push CI for that exact commit instead of running tests again, then creates a draft with generated PR-based notes, a pinned command, the utility, metadata, and SHA-256. It waits briefly if main CI is still running and fails if that CI did not pass. Manual dispatch from `main` can retry an existing tag and packages that tag's source, not newer main code. Review/edit the notes, manually test on a disposable Windows VM, then publish the draft in GitHub. User publication triggers the [Pages workflow](.github/workflows/pages.yml), which also reuses existing CI, verifies published assets against their tagged source, and deploys the site plus manifest as generated artifacts. No bot pushes or protection bypasses are needed.
 
 Website source is in [site/](site/); the only loader source is [loader/scans.ps1](loader/scans.ps1). The site builder copies it unchanged into its deployment output. The utility remains at the root until the bootstrap release works. New stable tags must use `vMAJOR.MINOR.PATCH`; historical four-part tags are retained and linked through GitHub Releases, but not exposed through the new checksum-verified channel.
 
 Work on a feature branch and open a pull request. The [CI workflow](.github/workflows/ci.yml) runs syntax checks and mocked Pester tests on Windows using both Windows PowerShell 5.1 and PowerShell 7. Its **Required checks** job passes only when both test jobs succeed, including when using a merge queue. CI also runs after pushes to `main` and can be started manually.
+
+External actions are pinned to full commit SHAs. [Dependabot](.github/dependabot.yml) checks GitHub Actions dependencies weekly and opens update PRs; updates must pass the same required CI.
 
 To enforce this deployment gate, protect `main` in **Settings > Branches**:
 

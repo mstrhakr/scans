@@ -12,34 +12,38 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
-  test:
+  build:
     if: >-
-      github.repository == 'printmaster-org/scans' &&
+      github.repository == 'Printmaster-Org/scans' &&
       ((github.event_name == 'release' && !github.event.release.prerelease) ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
-    uses: ./.github/workflows/ci.yml
-
-  build:
-    needs: test
     runs-on: windows-latest
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Validate published assets and build site
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ github.event.release.tag_name || inputs.version }}
         run: |
-          .\tools\Get-ReleaseCatalog.ps1 -OutputFile catalog.json
+          . .\tools\Release.Common.ps1
+          Assert-CommitCI -SourceCommit $env:GITHUB_SHA
+          .\tools\Get-ReleaseCatalog.ps1 -OutputFile catalog.json -SelectedVersion $env:RELEASE_VERSION
+          $catalog = @(Get-Content catalog.json -Raw | ConvertFrom-Json | ForEach-Object { $_ })
+          $stable = @($catalog | Where-Object { $_.version -ceq $env:RELEASE_VERSION })
+          if ($stable.Count -ne 1) { throw 'Selected stable release is missing or duplicated.' }
+          Assert-CommitCI -SourceCommit $stable[0].sourceCommit
           .\tools\Build-Site.ps1 -CatalogPath catalog.json -StableVersion $env:RELEASE_VERSION -OutputDirectory _site
       - name: Upload generated Pages site
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: _site
 
@@ -55,4 +59,4 @@ jobs:
     steps:
       - name: Deploy generated site
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
