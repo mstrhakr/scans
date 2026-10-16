@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="PrintMaster Scans sets up a Windows scan-to-SMB account, folder, and network share.">
+  <title>Scans | PrintMaster</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="releases.js" defer></script>
+</head>
+<body>
+  <header><a href="https://github.com/printmaster-org">PrintMaster</a><span> / Scans</span></header>
+  <main>
+    <section class="hero">
+      <p class="eyebrow">Scan-to-SMB setup for Windows</p>
+      <h1>A home for your scans.<br>Without the setup headache.</h1>
+      <p>Create a dedicated account, scan folder, SMB share, and desktop shortcut, with guided network configuration.</p>
+      <a class="button" href="#get-started">Get started</a>
+      <a class="secondary" href="https://github.com/printmaster-org/scans">View source on GitHub</a>
+    </section>
+    <section id="get-started">
+      <h2>Set up your PC</h2>
+      <ol>
+        <li>Open <strong>Windows PowerShell or Terminal as Administrator</strong>.</li>
+        <li>Review the <a href="scans.ps1">loader script</a>, then paste this command:</li>
+      </ol>
+      <pre><code>irm https://scans.printmaster.work/scans.ps1 | iex</code></pre>
+      <p id="stable-status" role="status">Loading stable release information...</p>
+      <p>Choose your account, folder, and share settings. Keep the generated password or choose one that meets your organization's policy. After setup, enter the PC's SMB share address and scan-account credentials on your printer.</p>
+      <p>The loader downloads a version-specific GitHub release and verifies SHA-256 before running it. A download or verification failure stops execution; it never falls back to development code.</p>
+    </section>
+    <section class="columns">
+      <div>
+        <h2>Requirements</h2>
+        <ul>
+          <li>Windows 11 (primary support).</li>
+          <li>Windows 10 22H2 (best-effort compatibility).</li>
+          <li>Windows PowerShell 5.1 or PowerShell 7.</li>
+          <li>Administrator privileges and internet access.</li>
+          <li>A printer that supports scan-to-SMB.</li>
+        </ul>
+        <p>Windows 7/8/8.1 and Windows Server are not validated support targets. Compatibility does not extend Microsoft's operating-system support.</p>
+      </div>
+      <div>
+        <h2>If something goes wrong</h2>
+        <p>Setup displays actionable errors. Password policy failures require a different password, not disabling Group Policy. Account-dependent steps are skipped if account setup fails.</p>
+        <p>For download errors, check access to this site and GitHub. For a checksum mismatch, stop and report it; do not bypass verification.</p>
+        <a href="https://github.com/printmaster-org/scans/issues">Report a problem</a>
+      </div>
+    </section>
+    <figure><img src="img/scans-setup.png" alt="Scans setup window with account, folder, and share settings" loading="lazy"></figure>
+    <section id="releases">
+      <h2>Choose a specific version</h2>
+      <p>Use a pinned command to run a particular release. Each release page includes changes, downloads, and checksums. The loader and manifest still come from this site; pinning selects the utility version, not an offline installation.</p>
+      <div id="release-list"><p>Loading release history...</p></div>
+      <noscript><p>JavaScript is needed to display the generated list. Browse <a href="releases.json">the version/checksum manifest</a> or <a href="https://github.com/printmaster-org/scans/releases">GitHub Releases</a> directly.</p></noscript>
+      <p><a href="releases.json">All published version hashes (JSON)</a> &middot; <a href="https://github.com/printmaster-org/scans/releases">Historical releases and release notes</a></p>
+      <p>SHA-256 verifies that a download matches the published manifest. It is not a digital signature or independent proof of publisher identity.</p>
+    </section>
+  </main>
+  <footer>PrintMaster Scans &middot; <a href="https://github.com/printmaster-org/scans">Open source on GitHub</a></footer>
+</body>
+</html>

@@ -12,34 +12,36 @@ Paste the following into an **Administrator** PowerShell window:
 irm https://raw.githubusercontent.com/mstrhakr/scans/main/scans.ps1 | iex
 ```
 
-### Older Systems (Windows 7 / 8 / Server 2008 R2)
+### PrintMaster release channel (being prepared)
 
-The one-liner above requires TLS 1.2 which older PowerShell versions don't enable by default. Use this two-line variant instead:
+This branch prepares the move to **printmaster-org/scans** and **https://scans.printmaster.work**. The existing command above remains working during the transition; it still executes `main`, not a release.
 
-```powershell
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-irm https://raw.githubusercontent.com/mstrhakr/scans/main/scans.ps1 | iex
-```
-
-If `Invoke-RestMethod` is not available (PowerShell 2.0), download and run manually:
+After the first release and Pages deployment are verified, the preferred command will be:
 
 ```powershell
-$url = 'https://raw.githubusercontent.com/mstrhakr/scans/main/scans.ps1'
-$out = "$env:TEMP\scans.ps1"
-(New-Object Net.WebClient).DownloadFile($url, $out)
-powershell -ExecutionPolicy Bypass -File $out
+irm https://scans.printmaster.work/scans.ps1 | iex
 ```
 
-> **Note:** PowerShell 3.0 or later is required. Windows 7 SP1 ships with PowerShell 2.0 — install [Windows Management Framework 3.0+](https://www.microsoft.com/en-us/download/details.aspx?id=54616) first.
+The new loader selects the promoted stable release from the site's manifest, downloads its version-specific GitHub asset, checks SHA-256, and only then executes it. A version can be selected explicitly:
+
+```powershell
+& ([scriptblock]::Create((irm https://scans.printmaster.work/scans.ps1))) -Version 'v2.1.0'
+```
+
+The version above is an example, not an already-published release. Pinned commands still require the loader and manifest to be available online.
+
+See the [transfer and release guide](docs/DEPLOYMENT.md) for rollout order, DNS, publishing, and the separate follow-up that switches the old command to the same loader.
 
 ## Requirements
 
 | Requirement | Details |
 | --- | --- |
-| **OS** | Windows 7 SP1 or later (including Server 2008 R2+) |
-| **PowerShell** | 3.0+ |
+| **OS** | Windows 11 primary; Windows 10 22H2 best-effort compatibility |
+| **PowerShell** | Windows PowerShell 5.1 or PowerShell 7 |
 | **Privileges** | Must be run as Administrator |
-| **Network** | Internet access for first run (downloads application icon) |
+| **Network** | Internet access to the release site and GitHub for the loader |
+
+Windows 7/8/8.1 and Windows Server are not validated support targets. Windows 10 compatibility is not a claim of continued Microsoft support. Legacy command fallbacks remain for now; removing them is a separate change.
 
 ## What It Does
 
@@ -92,7 +94,11 @@ Startup failures already stop setup with an error popup. Failed setup steps also
 
 ## Development and deployment
 
-The Quick Start URL intentionally follows `main`: merging a change to `main` deploys it to users of the one-liner. A GitHub Release is not involved.
+During preparation, the old Quick Start URL still follows `main`. The new Pages endpoint uses manually published, versioned GitHub Releases instead. Merging code does not deploy to the new endpoint.
+
+The [Prepare release workflow](.github/workflows/release.yml) tests the selected `main` commit and creates a draft release with generated PR-based notes, a pinned command, the utility, metadata, and SHA-256. Review/edit the notes, manually test on a disposable Windows VM, then publish the draft in GitHub. User publication triggers the [Pages workflow](.github/workflows/pages.yml), which verifies published assets against their tagged source and deploys the site plus manifest as generated artifacts. No bot pushes or protection bypasses are needed.
+
+Website source is in [site/](site/); the only loader source is [loader/scans.ps1](loader/scans.ps1). The site builder copies it unchanged into its deployment output. The utility remains at the root until the bootstrap release works. New stable tags must use `vMAJOR.MINOR.PATCH`; historical four-part tags are retained and linked through GitHub Releases, but not exposed through the new checksum-verified channel.
 
 Work on a feature branch and open a pull request. The [CI workflow](.github/workflows/ci.yml) runs syntax checks and mocked Pester tests on Windows using both Windows PowerShell 5.1 and PowerShell 7. Its **Required checks** job passes only when both test jobs succeed, including when using a merge queue. CI also runs after pushes to `main` and can be started manually.
 
@@ -102,7 +108,7 @@ To enforce this deployment gate, protect `main` in **Settings > Branches**:
 - Require the **Required checks** status check and require branches to be up to date before merging.
 - Apply the rules to administrators as well, and disallow force pushes and branch deletion.
 
-The workflow file alone does not enforce these settings. A required check can be configured before its first run; it remains pending until a pull request containing the workflow runs successfully. Do not push directly to `main` or bypass the required check. For a fixed, reproducible deployment, replace `main` in the Quick Start URL with a reviewed full commit SHA.
+The workflow file alone does not enforce these settings. A required check can be configured before its first run; it remains pending until a pull request containing the workflow runs successfully. Do not push directly to `main` or bypass the required check.
 
 ### Running tests locally
 
@@ -117,15 +123,18 @@ From the repository root, run either runtime:
 ```powershell
 powershell.exe -NoProfile -STA -File .\tests\Invoke-Tests.ps1
 pwsh.exe -NoProfile -STA -File .\tests\Invoke-Tests.ps1
+node --test .\tests\site.test.cjs
 ```
 
 The [test runner](tests/Invoke-Tests.ps1) fails on syntax errors, failing tests, or an empty test run. The [regression suite](tests/Scans.Tests.ps1) extracts function definitions without running the utility's elevation or setup code. Account, registry, filesystem, SMB, firewall, clipboard-related setup gating, and COM changes are mocked; WPF windows are loaded but never displayed. Tests cover password failures, error-popup routing, account visibility, folder setup, shares, network configuration, shortcuts, generated password shape, and setup options. The generator tests do not claim that every generated password satisfies policy.
 
-These checks do not replace a manual test of the real GUI and machine configuration on a disposable Windows VM. CI uses a current Windows runner; legacy command paths are mocked, not tested on Windows 7 or PowerShell 3.0.
+The [release tests](tests/Releases.Tests.ps1) cover loader selection, verification failures, temporary-file cleanup, package integrity, and site generation. Site rendering tests use Node's built-in test runner with no additional dependencies.
+
+These checks do not replace a manual test of the real GUI and machine configuration on a disposable Windows VM. CI uses a current Windows runner; Windows 10 compatibility and legacy command paths are not exercised on an actual Windows 10 runner.
 
 ## Features
 
 - **Solarized theming** — auto-detects Windows light/dark mode, defaults to dark
-- **Legacy OS support** — falls back to `net user`, `net share`, `netsh`, and `Get-WmiObject` on Windows 7/8
+- **Platform support** — Windows 11 primary; Windows 10 22H2 best-effort compatibility
 - **Error remediation** — shared error popups and inline tips for common failures (password policy, trust relationship, access denied, share in use), plus dependent-step safeguards
-- **Single file** — no dependencies, no installation, runs directly from GitHub
+- **Portable utility** — no application installation; release loader verifies downloads before execution
