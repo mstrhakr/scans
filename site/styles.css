@@ -3,7 +3,14 @@
 html { scroll-behavior: smooth; }
 body { margin: 0; background: var(--bg); color: var(--fg); font: 1.05rem/1.7 system-ui, sans-serif; }
 header, main, footer { max-width: 1080px; margin: auto; padding: 1.5rem; }
-header { border-bottom: 1px solid #586e75; }
+header { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; border-bottom: 1px solid #586e75; }
+.brand { display: inline-flex; align-items: center; gap: .5rem; color: var(--fg); font-size: 1.25rem; font-weight: 800; text-decoration: none; }
+.brand img { flex-shrink: 0; border-radius: 0; }
+.brand-accent { color: var(--accent); }
+.product-name { border-left: 1px solid #586e75; padding-left: 1rem; }
+header nav { display: flex; flex-wrap: wrap; gap: 1rem; margin-left: auto; }
+.skip-link { position: absolute; top: -100px; left: 1rem; padding: .5rem 1rem; background: var(--panel); }
+.skip-link:focus { top: 1rem; }
 a { color: var(--accent); text-underline-offset: .2em; }
 a:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 5px; }
 h1, h2, h3 { line-height: 1.2; }

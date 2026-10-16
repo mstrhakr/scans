@@ -8,6 +8,19 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'site', 'releases.js'), 'utf8');
 
+test('includes local PrintMaster branding, a home link, and the canonical Scans guide', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'site', 'index.html'), 'utf8');
+  const logo = fs.readFileSync(path.join(__dirname, '..', 'site', 'logo.svg'), 'utf8');
+  assert.match(logo, /viewBox="0 0 64 64"/);
+  assert.match(html, /rel="icon" href="logo\.svg"/);
+  assert.match(html, /href="https:\/\/printmaster\.work\/" aria-label="PrintMaster home"/);
+  assert.match(html, /<img src="logo\.svg" alt="" width="40" height="40">/);
+  assert.match(html, /href="https:\/\/docs\.printmaster\.work\/guides\/scans\/"/);
+  assert.match(html, /Provided by PrintMaster/);
+  assert.match(html, /href="#main"/);
+  assert.match(html, /<main id="main">/);
+});
+
 class Element {
   constructor() { this.children = []; this.textContent = ''; this.attributes = {}; this.listeners = {}; }
   append(...children) { this.children.push(...children); }

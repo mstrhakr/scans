@@ -282,7 +282,7 @@ Describe 'Account-dependent setup steps' {
 		Assert-MockCalled Initialize-DesktopShortcut -Times 0 -Exactly -Scope It
 		Assert-MockCalled Set-NetworkConfiguration -Times 0 -Exactly -Scope It
 		$script:controls.btnCopyPassword.IsEnabled | Should Be $false
-		$script:progressWindow.Title | Should Be 'Scans Setup - Finished'
+		$script:progressWindow.Title | Should Be 'PrintMaster Scans Setup - Finished'
 	}
 }
 
@@ -584,6 +584,29 @@ Describe 'Generated passwords' {
 }
 
 Describe 'WPF window markup' {
+	It 'renders the embedded PrintMaster window logo without external files' {
+		Add-Type -AssemblyName PresentationFramework
+		$icon = New-PrintMasterIcon
+		$icon.IsFrozen | Should Be $true
+		$icon.Width | Should Be 64
+		$icon.Height | Should Be 64
+		$visual = [System.Windows.Media.DrawingVisual]::new()
+		$context = $visual.RenderOpen()
+		$context.DrawImage($icon, [System.Windows.Rect]::new(0, 0, 64, 64))
+		$context.Close()
+		$bitmap = [System.Windows.Media.Imaging.RenderTargetBitmap]::new(64, 64, 96, 96, [System.Windows.Media.PixelFormats]::Pbgra32)
+		$bitmap.Render($visual)
+		$pixels = New-Object byte[] (64 * 64 * 4)
+		$bitmap.CopyPixels($pixels, 64 * 4, 0)
+		# The center of the green printer status light, in BGRA order.
+		$offset = (32 * 64 + 46) * 4
+		($pixels[$offset..($offset + 3)] -join ',') | Should Be '120,187,72,255'
+		$source = Get-Content $sourcePath -Raw
+		([regex]::Matches($source, '\.Icon = New-PrintMasterIcon')).Count | Should Be 3
+		$source | Should Match "Initialize-DesktopShortcut -FolderPath .folderPath -IconPath .iconPath"
+		$source | Should Match '\[IO.File\]::WriteAllBytes\(\$iconPath, \[Convert\]::FromBase64String\(\$script:appIconBase64\)\)'
+	}
+
 	It 'decodes the settings image in a fresh PowerShell process before loading any windows' {
 		$assemblyLoads = $ast.FindAll({
 			param($node)
@@ -630,6 +653,12 @@ Describe 'WPF window markup' {
 		}
 		$setup = [Windows.Markup.XamlReader]::Load([System.Xml.XmlNodeReader]::new($setupXaml))
 		$progress = [Windows.Markup.XamlReader]::Load([System.Xml.XmlNodeReader]::new($progressXaml))
+		foreach ($window in @($setup, $progress)) {
+			$window.Icon = New-PrintMasterIcon
+			$window.Icon | Should Not BeNullOrEmpty
+			$window.Title | Should Match '^PrintMaster Scans'
+			$window.FindName('txtProvider').Text | Should Be 'Provided by PrintMaster'
+		}
 		foreach ($name in @('txtUsername', 'txtPassword', 'txtFolderPath', 'txtShareName', 'btnOK', 'btnCancel', 'btnSettings')) {
 			$setup.FindName($name) | Should Not BeNullOrEmpty
 		}

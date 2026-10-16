@@ -451,6 +451,7 @@ Describe 'Release packaging and site generation' {
 		(Get-Content (Join-Path $script:site 'CNAME') -Raw).Trim() | Should Be 'scans.printmaster.work'
 		Test-Path (Join-Path $script:site 'index.html') | Should Be $true
 		Test-Path (Join-Path $script:site 'img\scans-setup.png') | Should Be $true
+		(Get-FileHash (Join-Path $script:site 'logo.svg')).Hash | Should Be (Get-FileHash (Join-Path $root 'site\logo.svg')).Hash
 		Test-Path (Join-Path $script:site '.nojekyll') | Should Be $true
 		Test-Path (Join-Path $root 'site\releases.json') | Should Be $false
 	}
