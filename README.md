@@ -78,6 +78,8 @@ App windows use the PrintMaster logo and attribution. The scan-folder desktop sh
 
 Click the gear icon to enable/disable individual steps.
 
+Choosing **Cancel** or closing the initial setup window exits normally without running the selected setup steps or displaying a loader error.
+
 ![Settings](img/scans-settings.png)
 
 Wait for the utility to complete all changes.

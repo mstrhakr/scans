@@ -735,7 +735,7 @@ if ($setupResult -eq $true) {
 }
 else {
 	Write-Verbose "User canceled scanning setup"
-	Exit 1
+	Exit 0
 }
 $details = New-Object System.Collections.ArrayList
 $script:progressMax = 2

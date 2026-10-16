@@ -201,6 +201,30 @@ Describe 'Scan account password errors' {
 	}
 }
 
+Describe 'Setup cancellation' {
+	It 'exits successfully without continuing setup when Cancel or window close dismisses the dialog' {
+		$decision = $ast.Find({
+			param($node)
+			$node -is [System.Management.Automation.Language.IfStatementAst] -and
+			$node.Clauses[0].Item1.Extent.Text -eq '$setupResult -eq $true'
+		}, $true)
+		$decision | Should Not BeNullOrEmpty
+		foreach ($result in @('$false', '$null')) {
+			$childScript = @(
+				'$ErrorActionPreference = "Stop"'
+				"`$setupResult = $result"
+				$decision.Extent.Text
+				'throw "Canceled setup must not continue."'
+			) -join "`n"
+			$encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($childScript))
+			$executable = (Get-Process -Id $PID).Path
+			$output = & $executable -NoProfile -NonInteractive -STA -EncodedCommand $encoded 2>&1
+			$LASTEXITCODE | Should Be 0
+			($output | Out-String).Trim() | Should BeNullOrEmpty
+		}
+	}
+}
+
 Describe 'Account-dependent setup steps' {
 	BeforeEach {
 		$source = Get-Content $sourcePath -Raw
