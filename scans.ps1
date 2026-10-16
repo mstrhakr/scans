@@ -5,7 +5,7 @@ param([switch]$Elevated)
 [string]$scanPass = 'scans'
 [string]$folderPath = 'C:\scans'
 [string]$shareName = 'scans'
-[string]$description = 'Scans tool provided by mstrhakr on Github.'
+[string]$description = 'PrintMaster Scans - https://github.com/printmaster-org/scans'
 
 # Load the .NET Framework classes
 Add-Type -AssemblyName System.Windows.Forms
@@ -44,7 +44,7 @@ function Show-ErrorAndExit {
 $script:Remediation = @{
 	NotAdmin       = "Right-click start button and select 'Powershell/Terminal (Admin)'."
 	NoInternet     = "Check your network connection and ensure you can reach github.com.`nIf behind a proxy, configure your system proxy settings."
-	OldPowerShell  = "Install Windows Management Framework 3.0 or later from:`nhttps://www.microsoft.com/en-us/download/details.aspx?id=54616"
+	OldPowerShell  = "Use Windows PowerShell 5.1 (included with Windows 10/11), or install PowerShell 7 from https://aka.ms/powershell."
 	TrustRelation  = "The domain trust is broken. Run the following from an admin prompt:`nTest-ComputerSecureChannel -Repair -Credential (Get-Credential)`nOr rejoin the machine to the domain."
 	AccessDenied   = "The current user does not have permission. Ensure you are running as Administrator and the folder is not read-only."
 	ShareInUse     = "Close any open files or Explorer windows pointing to the share, then try again."
@@ -84,10 +84,10 @@ if ($Elevated) {
 	try { [Win32.ConsoleWindow]::ShowWindow([Win32.ConsoleWindow]::GetConsoleWindow(), 0) | Out-Null } catch { }
 }
 
-# 2. Require PowerShell 3.0+
-if ($PSVersionTable.PSVersion.Major -lt 3) {
+# 2. Require PowerShell 5.1+
+if ($PSVersionTable.PSVersion -lt [version]'5.1') {
 	Show-ErrorAndExit -Title 'PowerShell Version Too Old' `
-		-Message "This script requires PowerShell 3.0 or later. You are running $($PSVersionTable.PSVersion)." `
+		-Message "This script requires Windows PowerShell 5.1 or PowerShell 7. You are running $($PSVersionTable.PSVersion)." `
 		-Remediation $script:Remediation.OldPowerShell
 }
 

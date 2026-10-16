@@ -1,0 +1,318 @@
+$root = Split-Path $PSScriptRoot -Parent
+$tokens = $null
+$errors = $null
+$loaderAst = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'loader\scans.ps1'), [ref]$tokens, [ref]$errors)
+if ($errors.Count) { throw ($errors | Out-String) }
+foreach ($definition in $loaderAst.FindAll({
+	param($node)
+	$node -is [System.Management.Automation.Language.FunctionDefinitionAst]
+}, $true)) {
+	. ([scriptblock]::Create($definition.Extent.Text))
+}
+. (Join-Path $root 'tools\Release.Common.ps1')
+
+function gh {
+	param(
+		[Parameter(Position = 0)]$Command,
+		[Parameter(Position = 1)]$Target,
+		[Parameter(ValueFromRemainingArguments = $true)]$Arguments,
+		[Parameter(ValueFromPipeline = $true)]$InputObject
+	)
+	throw 'Unmocked GitHub CLI call'
+}
+
+function New-TestRelease {
+	param([string]$Version = 'v2.1.0')
+	[pscustomobject]@{
+		version = $Version
+		url = "https://github.com/printmaster-org/scans/releases/download/$Version/scans.ps1"
+		sha256 = 'a' * 64
+		sourceCommit = 'b' * 40
+		publishedAt = '2026-10-15T12:00:00Z'
+		releaseUrl = "https://github.com/printmaster-org/scans/releases/tag/$Version"
+	}
+}
+
+Describe 'Release version policy' {
+	It 'accepts stable SemVer and rejects new four-part, malformed, or prerelease tags' {
+		foreach ($version in @('v0.1.0', 'v2.0.3', 'v2.1.0', 'v10.0.0')) {
+			{ Assert-ReleaseVersion $version } | Should Not Throw
+		}
+		foreach ($version in @('2.1.0', 'v2.0.2.0', 'v02.1.0', 'v2.1', 'v2.1.0-beta', 'v2.1.0+build', '../evil')) {
+			{ Assert-ReleaseVersion $version } | Should Throw
+		}
+	}
+}
+
+Describe 'Loader release selection' {
+	BeforeEach {
+		$script:manifest = [pscustomobject]@{
+			schemaVersion = 1
+			stable = 'v2.1.0'
+			releases = @((New-TestRelease), (New-TestRelease -Version 'v2.0.3'))
+		}
+	}
+
+	It 'selects the promoted stable release and supports older pinned versions' {
+		(Get-ScanRelease -Manifest $script:manifest).version | Should Be 'v2.1.0'
+		(Get-ScanRelease -Manifest $script:manifest -RequestedVersion v2.0.3).version | Should Be 'v2.0.3'
+	}
+
+	It 'rejects unknown schemas, missing versions, and duplicate entries' {
+		$script:manifest.schemaVersion = 2
+		{ Get-ScanRelease -Manifest $script:manifest } | Should Throw
+		$script:manifest.schemaVersion = 1
+		{ Get-ScanRelease -Manifest $script:manifest -RequestedVersion v9.0.0 } | Should Throw
+		$script:manifest.releases += New-TestRelease
+		{ Get-ScanRelease -Manifest $script:manifest } | Should Throw
+	}
+
+	It 'rejects latest URLs, other repositories, HTTP, and malformed hashes' {
+		foreach ($url in @(
+			'https://github.com/printmaster-org/scans/releases/latest/download/scans.ps1',
+			'https://github.com/attacker/scans/releases/download/v2.1.0/scans.ps1',
+			'http://github.com/printmaster-org/scans/releases/download/v2.1.0/scans.ps1'
+		)) {
+			$script:manifest.releases[0].url = $url
+			{ Get-ScanRelease -Manifest $script:manifest } | Should Throw
+		}
+		$script:manifest.releases[0] = New-TestRelease
+		$script:manifest.releases[0].sha256 = 'not a hash'
+		{ Get-ScanRelease -Manifest $script:manifest } | Should Throw
+	}
+}
+
+Describe 'Verified loader execution' {
+	BeforeEach {
+		$script:release = New-TestRelease
+		$fixture = Join-Path $TestDrive 'payload.ps1'
+		[IO.File]::WriteAllText($fixture, "throw 'This fixture must never execute'")
+		$script:payloadBytes = [IO.File]::ReadAllBytes($fixture)
+		$script:release.sha256 = (Get-FileHash $fixture -Algorithm SHA256).Hash
+		$script:downloadPath = $null
+		Mock Invoke-RestMethod { [pscustomobject]@{ schemaVersion = 1; stable = 'v2.1.0'; releases = @($script:release) } }
+		Mock Invoke-WebRequest {
+			$script:downloadPath = $OutFile
+			[IO.File]::WriteAllBytes($OutFile, $script:payloadBytes)
+		}
+		Mock Start-ScanScript { }
+	}
+
+	It 'executes only a verified download and removes its temporary file and directory' {
+		Invoke-ScanRelease
+		Assert-MockCalled Start-ScanScript -Times 1 -Exactly -Scope It -ParameterFilter { $ReleaseVersion -eq 'v2.1.0' }
+		Test-Path -LiteralPath $script:downloadPath | Should Be $false
+		Test-Path -LiteralPath (Split-Path $script:downloadPath -Parent) | Should Be $false
+	}
+
+	It 'does not execute a checksum mismatch or leave the download behind' {
+		$script:release.sha256 = '0' * 64
+		{ Invoke-ScanRelease } | Should Throw 'SHA-256 verification failed'
+		Assert-MockCalled Start-ScanScript -Times 0 -Exactly -Scope It
+		Test-Path -LiteralPath (Split-Path $script:downloadPath -Parent) | Should Be $false
+	}
+
+	It 'fails closed on network errors without attempting to execute anything' {
+		Mock Invoke-WebRequest { throw 'Download unavailable' }
+		{ Invoke-ScanRelease } | Should Throw 'Download unavailable'
+		Assert-MockCalled Start-ScanScript -Times 0 -Exactly -Scope It
+	}
+
+	It 'does not download an asset when manifest retrieval fails' {
+		Mock Invoke-RestMethod { throw 'Manifest unavailable' }
+		{ Invoke-ScanRelease } | Should Throw 'Manifest unavailable'
+		Assert-MockCalled Invoke-WebRequest -Times 0 -Exactly -Scope It
+		Assert-MockCalled Start-ScanScript -Times 0 -Exactly -Scope It
+	}
+}
+
+	Describe 'Published release catalog verification' {
+		BeforeEach {
+			$script:catalogFile = Join-Path $TestDrive ([guid]::NewGuid().ToString('N') + '.json')
+			$script:fixture = Join-Path $TestDrive 'catalog-payload.ps1'
+			[IO.File]::WriteAllText($script:fixture, '# packaged utility')
+			$script:metadata = [ordered]@{
+				schemaVersion = 1
+				version = 'v2.1.0'
+				sourceCommit = 'b' * 40
+				sourcePath = 'scans.ps1'
+				sha256 = (Get-FileHash $script:fixture).Hash.ToLowerInvariant()
+			}
+			$script:published = [pscustomobject]@{
+				tag_name = 'v2.1.0'; draft = $false; prerelease = $false; published_at = '2026-10-15T12:00:00Z'
+			}
+			$script:releasePages = ,@(
+				$script:published,
+				[pscustomobject]@{ tag_name = '2.0.2.0'; draft = $false; prerelease = $false },
+				[pscustomobject]@{ tag_name = 'v9.0.0'; draft = $true; prerelease = $false },
+				[pscustomobject]@{ tag_name = 'v3.0.0-beta'; draft = $false; prerelease = $true }
+			)
+			$global:ScansCatalogTestState = @{
+				Pages = $script:releasePages
+				Metadata = $script:metadata
+				Fixture = $script:fixture
+			}
+			Mock gh {
+				$state = $global:ScansCatalogTestState
+				$global:LASTEXITCODE = 0
+				if ($Command -eq 'api' -and $Target -like '*releases?per_page*') {
+					ConvertTo-Json -InputObject $state.Pages -Depth 5
+				}
+				elseif ($Command -eq 'api' -and $Target -like '*commits/v2.1.0') {
+					'b' * 40
+				}
+				elseif ($Command -eq 'release' -and $Target -eq 'download') {
+					$directory = $Arguments[[Array]::IndexOf($Arguments, '--dir') + 1]
+					Copy-Item -LiteralPath $state.Fixture -Destination (Join-Path $directory 'scans.ps1')
+					$state.Metadata | ConvertTo-Json | Set-Content (Join-Path $directory 'release.json')
+					"$($state.Metadata.sha256)  scans.ps1" | Set-Content (Join-Path $directory 'SHA256SUMS.txt')
+				}
+				else { throw "Unexpected GitHub call: $Command $Target $Arguments" }
+			}
+			Mock Invoke-WebRequest { Copy-Item -LiteralPath $global:ScansCatalogTestState.Fixture -Destination $OutFile }
+		}
+		AfterEach { Remove-Variable -Name ScansCatalogTestState -Scope Global -ErrorAction SilentlyContinue }
+
+		It 'verifies published bytes and source while excluding old, draft, and prerelease tags' {
+			& (Join-Path $root 'tools\Get-ReleaseCatalog.ps1') -OutputFile $script:catalogFile
+			$catalog = @(Get-Content $script:catalogFile -Raw | ConvertFrom-Json)
+			$catalog.Count | Should Be 1
+			$catalog[0].version | Should Be 'v2.1.0'
+			$catalog[0].sha256 | Should Be $script:metadata.sha256
+			Assert-MockCalled gh -Times 1 -Exactly -Scope It -ParameterFilter { $Command -eq 'release' -and $Target -eq 'download' }
+		}
+
+		It 'refuses metadata hashes that do not match the release asset' {
+			$script:metadata.sha256 = '0' * 64
+			{ & (Join-Path $root 'tools\Get-ReleaseCatalog.ps1') -OutputFile $script:catalogFile } | Should Throw 'SHA-256'
+			Test-Path $script:catalogFile | Should Be $false
+		}
+
+		It 'refuses a tag pointing to a different source commit' {
+			$script:metadata.sourceCommit = 'c' * 40
+			{ & (Join-Path $root 'tools\Get-ReleaseCatalog.ps1') -OutputFile $script:catalogFile } | Should Throw 'different source commit'
+		}
+
+		It 'refuses assets that differ from their recorded source file' {
+			Mock Invoke-WebRequest { Set-Content -LiteralPath $OutFile -Value '# different source' }
+			{ & (Join-Path $root 'tools\Get-ReleaseCatalog.ps1') -OutputFile $script:catalogFile } | Should Throw 'tagged source'
+		}
+
+		It 'fails explicitly if there are no eligible releases or GitHub is unavailable' {
+			$global:ScansCatalogTestState.Pages = ,@([pscustomobject]@{ tag_name = '2.0.2.0'; draft = $false; prerelease = $false })
+			{ & (Join-Path $root 'tools\Get-ReleaseCatalog.ps1') -OutputFile $script:catalogFile } | Should Throw 'No published'
+			Mock gh { $global:LASTEXITCODE = 1 }
+			{ & (Join-Path $root 'tools\Get-ReleaseCatalog.ps1') -OutputFile $script:catalogFile } | Should Throw 'Could not list'
+		}
+	}
+
+	Describe 'Draft release preparation' {
+		BeforeEach {
+			$script:previousRepo = $env:GITHUB_REPOSITORY
+			$script:previousRef = $env:GITHUB_REF
+			$env:GITHUB_REPOSITORY = 'printmaster-org/scans'
+			$env:GITHUB_REF = 'refs/heads/main'
+			$script:draftPackage = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+			& (Join-Path $root 'tools\New-ReleasePackage.ps1') -Version v2.1.0 -SourceCommit ('b' * 40) -OutputDirectory $script:draftPackage
+			Mock gh {
+				$global:LASTEXITCODE = 0
+				if ($Command -eq 'api') { '{"body":"## Changes\n- Example merged PR"}' }
+			}
+		}
+		AfterEach {
+			$env:GITHUB_REPOSITORY = $script:previousRepo
+			$env:GITHUB_REF = $script:previousRef
+		}
+
+		It 'creates a draft with editable notes, pinned instructions, and the actual SHA' {
+			& (Join-Path $root 'tools\New-DraftRelease.ps1') -Version v2.1.0 -SourceCommit ('b' * 40) -PackageDirectory $script:draftPackage
+			$notes = Get-Content (Join-Path $script:draftPackage 'notes.md') -Raw
+			$notes | Should Match 'Example merged PR'
+			$notes | Should Match "-Version 'v2.1.0'"
+			$notes | Should Match '```powershell'
+			$metadata = Get-Content (Join-Path $script:draftPackage 'release.json') -Raw | ConvertFrom-Json
+			$notes | Should Match $metadata.sha256
+			Assert-MockCalled gh -Times 1 -Exactly -Scope It -ParameterFilter {
+				$Command -eq 'release' -and $Target -eq 'create' -and $Arguments -contains '--draft' -and $Arguments -contains ('b' * 40)
+			}
+		}
+
+		It 'rejects publication from the old owner or a feature branch' {
+			$env:GITHUB_REPOSITORY = 'mstrhakr/scans'
+			{ & (Join-Path $root 'tools\New-DraftRelease.ps1') -Version v2.1.0 -SourceCommit ('b' * 40) -PackageDirectory $script:draftPackage } | Should Throw
+			$env:GITHUB_REPOSITORY = 'printmaster-org/scans'
+			$env:GITHUB_REF = 'refs/heads/feature/example'
+			{ & (Join-Path $root 'tools\New-DraftRelease.ps1') -Version v2.1.0 -SourceCommit ('b' * 40) -PackageDirectory $script:draftPackage } | Should Throw
+			Assert-MockCalled gh -Times 0 -Exactly -Scope It
+		}
+
+		It 'rejects packages that do not belong to the tested commit' {
+			{ & (Join-Path $root 'tools\New-DraftRelease.ps1') -Version v2.1.0 -SourceCommit ('c' * 40) -PackageDirectory $script:draftPackage } | Should Throw 'tested commit'
+			Assert-MockCalled gh -Times 0 -Exactly -Scope It
+		}
+	}
+
+Describe 'Release packaging and site generation' {
+	BeforeEach {
+		$script:package = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+		$script:site = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+		$script:catalogPath = Join-Path $TestDrive 'catalog.json'
+	}
+
+	It 'packages exact utility bytes with matching metadata and checksums' {
+		& (Join-Path $root 'tools\New-ReleasePackage.ps1') -Version v2.1.0 -SourceCommit ('b' * 40) -OutputDirectory $script:package
+		$metadata = Get-Content (Join-Path $script:package 'release.json') -Raw | ConvertFrom-Json
+		$asset = Join-Path $script:package 'scans.ps1'
+		Assert-ReleaseMetadata -Metadata $metadata -Version v2.1.0 -ScriptPath $asset
+		(Get-FileHash $asset).Hash | Should Be (Get-FileHash (Join-Path $root 'scans.ps1')).Hash
+		(Get-Content (Join-Path $script:package 'SHA256SUMS.txt') -Raw).Trim() | Should Be "$($metadata.sha256)  scans.ps1"
+		Add-Content -LiteralPath $asset -Value '# tampered'
+		{ Assert-ReleaseMetadata -Metadata $metadata -Version v2.1.0 -ScriptPath $asset } | Should Throw
+	}
+
+	It 'rejects invalid package versions before producing output' {
+		{ & (Join-Path $root 'tools\New-ReleasePackage.ps1') -Version v2.0.2.0 -SourceCommit ('b' * 40) -OutputDirectory $script:package } | Should Throw
+		Test-Path $script:package | Should Be $false
+	}
+
+	It 'builds the manifest, pinned history, and byte-identical shared loader without modifying source' {
+		ConvertTo-Json -InputObject @((New-TestRelease -Version v2.0.3), (New-TestRelease)) | Set-Content $script:catalogPath
+		& (Join-Path $root 'tools\Build-Site.ps1') -CatalogPath $script:catalogPath -StableVersion v2.1.0 -OutputDirectory $script:site
+		$manifest = Get-Content (Join-Path $script:site 'releases.json') -Raw | ConvertFrom-Json
+		$manifest.stable | Should Be 'v2.1.0'
+		$manifest.releases.Count | Should Be 2
+		$manifest.releases[0].version | Should Be 'v2.1.0'
+		(Get-FileHash (Join-Path $script:site 'scans.ps1')).Hash | Should Be (Get-FileHash (Join-Path $root 'loader\scans.ps1')).Hash
+		(Get-Content (Join-Path $script:site 'CNAME') -Raw).Trim() | Should Be 'scans.printmaster.work'
+		Test-Path (Join-Path $script:site 'index.html') | Should Be $true
+		Test-Path (Join-Path $script:site 'img\scans-setup.png') | Should Be $true
+		Test-Path (Join-Path $script:site '.nojekyll') | Should Be $true
+		Test-Path (Join-Path $root 'site\releases.json') | Should Be $false
+	}
+
+	It 'supports explicit rollback without dropping other pinned releases' {
+		ConvertTo-Json -InputObject @((New-TestRelease), (New-TestRelease -Version v2.0.3)) | Set-Content $script:catalogPath
+		& (Join-Path $root 'tools\Build-Site.ps1') -CatalogPath $script:catalogPath -StableVersion v2.0.3 -OutputDirectory $script:site
+		$manifest = Get-Content (Join-Path $script:site 'releases.json') -Raw | ConvertFrom-Json
+		$manifest.stable | Should Be 'v2.0.3'
+		$manifest.releases.Count | Should Be 2
+	}
+
+	It 'rejects unknown stable versions and duplicate or untrusted catalog entries' {
+		ConvertTo-Json -InputObject @((New-TestRelease)) | Set-Content $script:catalogPath
+		{ & (Join-Path $root 'tools\Build-Site.ps1') -CatalogPath $script:catalogPath -StableVersion v9.0.0 -OutputDirectory $script:site } | Should Throw
+		ConvertTo-Json -InputObject @((New-TestRelease), (New-TestRelease)) | Set-Content $script:catalogPath
+		{ & (Join-Path $root 'tools\Build-Site.ps1') -CatalogPath $script:catalogPath -StableVersion v2.1.0 -OutputDirectory $script:site } | Should Throw
+		$bad = New-TestRelease
+		$bad.url = 'https://example.invalid/scans.ps1'
+		ConvertTo-Json -InputObject @($bad) | Set-Content $script:catalogPath
+		{ & (Join-Path $root 'tools\Build-Site.ps1') -CatalogPath $script:catalogPath -StableVersion v2.1.0 -OutputDirectory $script:site } | Should Throw
+		Test-Path $script:site | Should Be $false
+	}
+
+	It 'does not overwrite an existing site output directory' {
+		ConvertTo-Json -InputObject @((New-TestRelease)) | Set-Content $script:catalogPath
+		New-Item -Path $script:site -ItemType Directory | Out-Null
+		{ & (Join-Path $root 'tools\Build-Site.ps1') -CatalogPath $script:catalogPath -StableVersion v2.1.0 -OutputDirectory $script:site } | Should Throw
+	}
+}
