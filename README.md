@@ -66,13 +66,13 @@ All settings are configurable through the UI before execution.
 
 ## Usage
 
-First choose the inputs — the password is randomly generated with a cryptographically secure generator.
+First choose the inputs — the password is randomly generated with a cryptographically secure generator. Screenshots use example credentials and simulated progress/completion states rendered from the current app UI; they do not show a real machine setup. Do not reuse the example password.
 
 ![Setup](img/scans-setup.png)
 
 The UI automatically matches your Windows theme (light or dark).
 
-App windows use the PrintMaster logo and attribution. The scan-folder desktop shortcut keeps its original scan icon. The self-contained utility embeds the window logo as WPF vector artwork matching [site/logo.svg](site/logo.svg), so branding needs no extra download. The screenshots below may show an earlier release.
+App windows use the PrintMaster logo and attribution. The scan-folder desktop shortcut keeps its original scan icon. The self-contained utility embeds the window logo as WPF vector artwork matching [site/logo.svg](site/logo.svg), so branding needs no extra download.
 
 ![Setup Light Theme](img/scans-setup-theme.png)
 
@@ -107,6 +107,8 @@ Both public entrypoints select manually published, versioned GitHub Releases. Me
 Pushing a stable SemVer tag starts the [Prepare release workflow](.github/workflows/release.yml). It reuses successful main-push CI for that exact commit instead of running tests again, then creates a draft with generated PR-based notes, a pinned command, the utility, metadata, and SHA-256. It waits briefly if main CI is still running and fails if that CI did not pass. Manual dispatch from `main` can retry an existing tag and packages that tag's source, not newer main code. Review/edit the notes, manually test on a disposable Windows VM, then publish the draft in GitHub. User publication triggers the [Pages workflow](.github/workflows/pages.yml), which also reuses existing CI, verifies published assets against their tagged source, and deploys the site plus manifest as generated artifacts. No bot pushes or protection bypasses are needed.
 
 Website source is in [site/](site/); the only loader source is [scans.ps1](scans.ps1). The site builder copies it unchanged into its deployment output. The actual utility is [src/scans.ps1](src/scans.ps1); release packaging selects that file, never the loader. New stable tags must use `vMAJOR.MINOR.PATCH`; historical four-part tags are retained and linked through GitHub Releases, but not exposed through the new checksum-verified channel.
+
+The landing page follows the PrintMaster site's Solarized palette, teal accents, wordmark, panel styling, and cross-site navigation. Styles and the logo are local to this repository; navigation works without JavaScript, and the layout supports light/dark preferences, keyboard navigation, and reduced motion. Release rendering and copy buttons use [site/releases.js](site/releases.js).
 
 Work on a feature branch and open a pull request. The [CI workflow](.github/workflows/ci.yml) runs syntax checks and mocked Pester tests on Windows using both Windows PowerShell 5.1 and PowerShell 7. Its **Required checks** job passes only when both test jobs succeed, including when using a merge queue. CI also runs after pushes to `main` and can be started manually.
 
