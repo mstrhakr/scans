@@ -5,7 +5,7 @@ param([switch]$Elevated)
 [string]$scanPass = 'scans'
 [string]$folderPath = 'C:\scans'
 [string]$shareName = 'scans'
-[string]$description = 'PrintMaster Scans - https://github.com/printmaster-org/scans'
+[string]$description = 'Scanning provided by PrintMaster'
 
 # Load the .NET Framework classes
 Add-Type -AssemblyName System.Windows.Forms
