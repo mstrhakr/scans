@@ -34,6 +34,12 @@ Do not switch the root entry point before the first stable manifest works: an ab
 
 Organization policies may disallow third-party actions or require environment approval. Resolve those settings explicitly rather than granting a broad bypass.
 
+## Dependency updates
+
+Dependabot groups weekly GitHub Actions updates into separate patch/minor and major PRs. Enable **Allow auto-merge** in repository settings. The Dependabot auto-merge workflow verifies bot-authored commits and enables squash auto-merge only when the highest update type in the PR is patch or minor. Required checks and branch protection still gate merging; no approval or protection bypass is granted. Major updates require a maintainer to review and merge.
+
+The privileged workflow runs on `pull_request_target` without checking out or executing PR code. Its external metadata action is SHA-pinned. If a PR falls behind main, the strict up-to-date requirement still applies; Dependabot must update it before it can merge. Existing PRs may need a Dependabot rebase to trigger the new workflow after it lands.
+
 ## Release and promotion model
 
 **Prepare release** starts on `v*` tag pushes and validates strict stable SemVer. It reuses the latest existing **CI** workflow run for the exact tagged commit, requiring event `push`, branch `main`, and conclusion `success`. PR results, other commits, cancelled/skipped/failed runs, and an older success superseded by a failed run do not qualify. It waits up to about ten minutes for an existing main run to appear/finish, without dispatching tests. If CI is still unavailable, it fails explicitly; wait for CI and retry. If GitHub no longer retains the evidence, rerun main CI for that commit before retrying.
