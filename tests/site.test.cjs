@@ -21,6 +21,15 @@ test('includes local PrintMaster branding, a home link, and the canonical Scans 
   assert.match(html, /<main id="main">/);
 });
 
+test('loads the Scans GoatCounter tracker once and asynchronously', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'site', 'index.html'), 'utf8');
+  const trackers = [...html.matchAll(/<script\b[^>]*\bdata-goatcounter="([^"]+)"[^>]*><\/script>/g)];
+  assert.equal(trackers.length, 1);
+  assert.equal(trackers[0][1], 'https://printmaster-scans.goatcounter.com/count');
+  assert.match(trackers[0][0], /\sasync\s/);
+  assert.match(trackers[0][0], /src="\/\/gc\.zgo\.at\/count\.js"/);
+});
+
 test('provides cross-site navigation and working setup anchors without JavaScript', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'site', 'index.html'), 'utf8');
   assert.match(html, /href="https:\/\/printmaster\.work\/downloads"/);
@@ -45,7 +54,7 @@ test('provides cross-site navigation and working setup anchors without JavaScrip
     assert.ok(ids.includes(id), `missing release/copy hook ${id}`);
   }
   for (const match of html.matchAll(/(?:src|href)="([^"#]+)"/g)) {
-    if (/^https?:/.test(match[1])) continue;
+    if (/^(?:https?:)?\/\//.test(match[1])) continue;
     if (match[1] === 'releases.json') continue;
     const relative = match[1] === 'scans.ps1' || match[1].startsWith('img/') ? match[1] : path.join('site', match[1]);
     assert.ok(fs.existsSync(path.join(__dirname, '..', relative)), `missing site asset ${match[1]}`);
