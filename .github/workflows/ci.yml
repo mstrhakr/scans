@@ -44,7 +44,7 @@ jobs:
           if-no-files-found: warn
       - name: Test landing page rendering
         shell: powershell
-        run: node --test .\tests\site.test.cjs
+        run: node --test .\tests\site.test.cjs .\tests\embed.test.cjs
 
   required-checks:
     name: Required checks

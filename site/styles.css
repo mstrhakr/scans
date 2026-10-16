@@ -100,8 +100,10 @@ pre { padding: 1rem; background: var(--code); border: 1px solid var(--border); b
 .footer-top nav a:hover { color: var(--accent); }
 .footer-bottom { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; border-top: 1px solid var(--border); padding-block: 1.25rem; font-size: .75rem; }
 @media (prefers-color-scheme: light) {
-  :root { --bg: #fdf6e3; --bg-deep: #f5eedb; --panel: #eee8d5; --border: #d3cbb8; --fg: #073642; --muted: #586e75; --accent: #006b61; --button: #007b70; --button-fg: #fff; --code: #fdf6e3; }
+  :root:not([data-embedded]) { --bg: #fdf6e3; --bg-deep: #f5eedb; --panel: #eee8d5; --border: #d3cbb8; --fg: #073642; --muted: #586e75; --accent: #006b61; --button: #007b70; --button-fg: #fff; --code: #fdf6e3; }
 }
+:root[data-embedded] { color-scheme: dark; scroll-padding-top: 0; }
+[data-embedded] .site-header, [data-embedded] .site-footer, [data-embedded] .skip-link { display: none; }
 @media (max-width: 960px) {
   .hero-layout { gap: 2rem; }
   .setup-layout { grid-template-columns: 1fr; gap: 2rem; }
