@@ -13,7 +13,7 @@ test('includes local PrintMaster branding, a home link, and the canonical Scans 
   const logo = fs.readFileSync(path.join(__dirname, '..', 'site', 'logo.svg'), 'utf8');
   assert.match(logo, /viewBox="0 0 64 64"/);
   assert.match(html, /rel="icon" href="logo\.svg"/);
-  assert.match(html, /href="https:\/\/printmaster\.work\/" aria-label="PrintMaster home"/);
+  assert.match(html, /href="\.\/" aria-label="PrintMaster Scans home"/);
   assert.match(html, /<img src="logo\.svg" alt="" width="40" height="40">/);
   assert.match(html, /href="https:\/\/docs\.printmaster\.work\/guides\/scans\/"/);
   assert.match(html, /Provided by PrintMaster/);
@@ -26,8 +26,15 @@ test('provides cross-site navigation and working setup anchors without JavaScrip
   assert.match(html, /href="https:\/\/printmaster\.work\/downloads"/);
   assert.match(html, /href="https:\/\/docs\.printmaster\.work\/"/);
   assert.match(html, /href="https:\/\/docs\.printmaster\.work\/guides\/manual-smb-setup\/"/);
-  assert.match(html, /href="\.\/" aria-current="page">Scans/);
-  assert.match(html, /<nav aria-label="PrintMaster sites">/);
+  assert.match(html, /<nav aria-label="Scans navigation">/);
+  assert.match(html, /<nav aria-label="More from PrintMaster">/);
+  assert.match(html, /href="https:\/\/printmaster\.work\/downloads">Agent &amp; Server downloads/);
+  assert.match(html, /href="https:\/\/printmaster\.work\/">PrintMaster fleet monitoring/);
+  const header = html.match(/<header[\s\S]*?<\/header>/)[0];
+  assert.doesNotMatch(header, /https:\/\/printmaster\.work/);
+  assert.match(header, /href="#releases">Scans releases/);
+  assert.match(header, /Scans guide <span aria-hidden="true">&nearr;/);
+  assert.match(header, /Scans on GitHub <span aria-hidden="true">&nearr;/);
   assert.match(html, /<noscript>/);
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
   assert.equal(new Set(ids).size, ids.length, 'element IDs must be unique');
