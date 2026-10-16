@@ -10,6 +10,7 @@ param([switch]$Elevated)
 # Load the .NET Framework classes
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName PresentationCore
 Add-Type -AssemblyName PresentationFramework
 $ProgressPreference = 'SilentlyContinue'
 

@@ -561,6 +561,37 @@ Describe 'Generated passwords' {
 }
 
 Describe 'WPF window markup' {
+	It 'decodes the settings image in a fresh PowerShell process before loading any windows' {
+		$assemblyLoads = $ast.FindAll({
+			param($node)
+			$node -is [System.Management.Automation.Language.CommandAst] -and
+			$node.GetCommandName() -eq 'Add-Type' -and $node.Extent.StartLineNumber -lt 20
+		}, $true)
+		$iconAssignment = $ast.Find({
+			param($node)
+			$node -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+			$node.Left.Extent.Text -eq '$script:settingsIconBase64'
+		}, $true)
+		$iconLoad = $ast.Find({
+			param($node)
+			$node -is [System.Management.Automation.Language.TryStatementAst] -and
+			$node.Body.Extent.Text -match '\$script:settingsIconBase64'
+		}, $true)
+		$childScript = @(
+			'$ErrorActionPreference = "Stop"; $WarningPreference = "Stop"'
+			$assemblyLoads | ForEach-Object { $_.Extent.Text }
+			$iconAssignment.Extent.Text
+			$iconLoad.Extent.Text
+			'if ($script:settingsIconBitmap.PixelWidth -le 0) { throw "Settings image was not decoded." }'
+			'$script:settingsIconBitmap.GetType().FullName'
+		) -join "`n"
+		$encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($childScript))
+		$executable = (Get-Process -Id $PID).Path
+		$output = & $executable -NoProfile -NonInteractive -STA -EncodedCommand $encoded 2>&1
+		$LASTEXITCODE | Should Be 0
+		($output | Out-String).Trim() | Should Be 'System.Windows.Media.Imaging.BitmapImage'
+	}
+
 	It 'loads setup and progress windows without displaying them or running setup' {
 		Add-Type -AssemblyName PresentationFramework
 		foreach ($name in @('thBg', 'thBgAlt', 'thFg', 'thFgEm', 'thFgStrong', 'thAccent', 'thAccentHi', 'thBorder', 'thBtnText')) {
