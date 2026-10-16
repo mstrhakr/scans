@@ -1,7 +1,7 @@
 $root = Split-Path $PSScriptRoot -Parent
 $tokens = $null
 $errors = $null
-$loaderAst = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'loader\scans.ps1'), [ref]$tokens, [ref]$errors)
+$loaderAst = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'scans.ps1'), [ref]$tokens, [ref]$errors)
 if ($errors.Count) { throw ($errors | Out-String) }
 foreach ($definition in $loaderAst.FindAll({
 	param($node)
@@ -420,7 +420,8 @@ Describe 'Release packaging and site generation' {
 		$metadata = Get-Content (Join-Path $script:package 'release.json') -Raw | ConvertFrom-Json
 		$asset = Join-Path $script:package 'scans.ps1'
 		Assert-ReleaseMetadata -Metadata $metadata -Version v2.1.0 -ScriptPath $asset
-		(Get-FileHash $asset).Hash | Should Be (Get-FileHash (Join-Path $root 'scans.ps1')).Hash
+		(Get-FileHash $asset).Hash | Should Be (Get-FileHash (Join-Path $root 'src\scans.ps1')).Hash
+		$metadata.sourcePath | Should Be 'src/scans.ps1'
 		(Get-Content (Join-Path $script:package 'SHA256SUMS.txt') -Raw).Trim() | Should Be "$($metadata.sha256)  scans.ps1"
 		Add-Content -LiteralPath $asset -Value '# tampered'
 		{ Assert-ReleaseMetadata -Metadata $metadata -Version v2.1.0 -ScriptPath $asset } | Should Throw
@@ -446,7 +447,7 @@ Describe 'Release packaging and site generation' {
 		$manifest.stable | Should Be 'v2.1.0'
 		$manifest.releases.Count | Should Be 2
 		$manifest.releases[0].version | Should Be 'v2.1.0'
-		(Get-FileHash (Join-Path $script:site 'scans.ps1')).Hash | Should Be (Get-FileHash (Join-Path $root 'loader\scans.ps1')).Hash
+		(Get-FileHash (Join-Path $script:site 'scans.ps1')).Hash | Should Be (Get-FileHash (Join-Path $root 'scans.ps1')).Hash
 		(Get-Content (Join-Path $script:site 'CNAME') -Raw).Trim() | Should Be 'scans.printmaster.work'
 		Test-Path (Join-Path $script:site 'index.html') | Should Be $true
 		Test-Path (Join-Path $script:site 'img\scans-setup.png') | Should Be $true

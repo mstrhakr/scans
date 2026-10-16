@@ -1,4 +1,4 @@
-$sourcePath = Join-Path (Split-Path $PSScriptRoot -Parent) 'scans.ps1'
+$sourcePath = Join-Path (Split-Path $PSScriptRoot -Parent) 'src\scans.ps1'
 $tokens = $null
 $parseErrors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($sourcePath, [ref]$tokens, [ref]$parseErrors)
