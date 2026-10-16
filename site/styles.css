@@ -5,7 +5,7 @@ body { margin: 0; background: var(--bg); color: var(--fg); font: 1.05rem/1.7 sys
 header, main, footer { max-width: 1080px; margin: auto; padding: 1.5rem; }
 header { border-bottom: 1px solid #586e75; }
 a { color: var(--accent); text-underline-offset: .2em; }
-a:focus-visible { outline: 3px solid var(--accent); outline-offset: 5px; }
+a:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 5px; }
 h1, h2, h3 { line-height: 1.2; }
 h1 { font-size: clamp(2.1rem, 6vw, 4rem); letter-spacing: -.04em; }
 h2 { font-size: 1.8rem; }
@@ -16,6 +16,13 @@ section { margin: 3rem 0; scroll-margin-top: 1rem; }
 .button { display: inline-block; padding: .6rem 1.2rem; margin: 1rem 1rem 0 0; background: #268bd2; color: white; border-radius: .4rem; text-decoration: none; font-weight: 600; }
 .secondary { display: inline-block; margin-top: 1rem; }
 pre { padding: 1rem; background: var(--panel); border: 1px solid #586e75; border-radius: .4rem; overflow-x: auto; font-size: .9rem; }
+.command-block { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: .5rem; margin: 1em 0; }
+.command-block pre { margin: 0; }
+.copy-command { padding: .8rem 1rem; background: var(--panel); color: var(--fg); border: 1px solid #586e75; border-radius: .4rem; font: inherit; cursor: pointer; }
+.copy-command:hover { border-color: var(--accent); }
+.copy-command:disabled { opacity: .7; cursor: wait; }
+.copy-status { grid-column: 1 / -1; margin: 0; font-size: .9rem; }
+.copy-status:empty { display: none; }
 .columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 2rem; }
 figure { margin: 2rem 0; }
 img { max-width: 100%; height: auto; border-radius: .5rem; }
@@ -23,4 +30,5 @@ article { padding: 1rem 0; border-bottom: 1px solid #586e75; }
 .checksum { color: var(--muted); overflow-wrap: anywhere; font: .85rem/1.6 ui-monospace, monospace; }
 footer { color: var(--muted); border-top: 1px solid #586e75; }
 @media (prefers-color-scheme: light) { :root { --bg: #fdf6e3; --panel: #eee8d5; --fg: #073642; --muted: #586e75; --accent: #005b91; } }
+@media (max-width: 600px) { .command-block { grid-template-columns: minmax(0, 1fr); } .copy-command { justify-self: start; } }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }

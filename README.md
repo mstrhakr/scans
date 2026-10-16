@@ -9,17 +9,15 @@ A lightweight PowerShell utility that configures a Windows PC for network scanni
 Paste the following into an **Administrator** PowerShell window:
 
 ```powershell
-irm https://raw.githubusercontent.com/mstrhakr/scans/main/scans.ps1 | iex
+irm https://scans.printmaster.work/scans.ps1 | iex
 ```
 
-### PrintMaster release channel (being prepared)
+### Stable releases and existing commands
 
-This branch prepares the move to **printmaster-org/scans** and **https://scans.printmaster.work**. The existing command above remains working during the transition; it still executes `main`, not a release.
-
-After the first release and Pages deployment are verified, the preferred command will be:
+The utility is maintained at **printmaster-org/scans**. The root script and the website use one shared loader implementation. The organization raw URL is also supported:
 
 ```powershell
-irm https://scans.printmaster.work/scans.ps1 | iex
+irm https://raw.githubusercontent.com/printmaster-org/scans/main/scans.ps1 | iex
 ```
 
 The new loader selects the promoted stable release from the site's manifest, downloads its version-specific GitHub asset, checks SHA-256, and only then executes it. A version can be selected explicitly:
@@ -28,9 +26,9 @@ The new loader selects the promoted stable release from the site's manifest, dow
 & ([scriptblock]::Create((irm https://scans.printmaster.work/scans.ps1))) -Version 'v2.1.0'
 ```
 
-The version above is an example, not an already-published release. Pinned commands still require the loader and manifest to be available online.
+Pinned commands still require the loader and manifest to be available online. The old `mstrhakr/scans` raw URL relies on GitHub's repository-transfer redirect and now also runs the loader, not development utility code. If the site or manifest is unavailable, setup stops rather than falling back to `main`.
 
-See the [transfer and release guide](docs/DEPLOYMENT.md) for rollout order, DNS, publishing, and the separate follow-up that switches the old command to the same loader.
+See the [transfer and release guide](docs/DEPLOYMENT.md) for rollout order, DNS, publishing, and cutover verification.
 
 ## Requirements
 
@@ -94,11 +92,11 @@ Startup failures already stop setup with an error popup. Failed setup steps also
 
 ## Development and deployment
 
-During preparation, the old Quick Start URL still follows `main`. The new Pages endpoint uses manually published, versioned GitHub Releases instead. Merging code does not deploy to the new endpoint.
+Both public entrypoints select manually published, versioned GitHub Releases. Merging utility code does not deploy it to users. Merging loader changes does update the raw-main loader; website loader changes require a Pages refresh.
 
 Pushing a stable SemVer tag starts the [Prepare release workflow](.github/workflows/release.yml). It reuses successful main-push CI for that exact commit instead of running tests again, then creates a draft with generated PR-based notes, a pinned command, the utility, metadata, and SHA-256. It waits briefly if main CI is still running and fails if that CI did not pass. Manual dispatch from `main` can retry an existing tag and packages that tag's source, not newer main code. Review/edit the notes, manually test on a disposable Windows VM, then publish the draft in GitHub. User publication triggers the [Pages workflow](.github/workflows/pages.yml), which also reuses existing CI, verifies published assets against their tagged source, and deploys the site plus manifest as generated artifacts. No bot pushes or protection bypasses are needed.
 
-Website source is in [site/](site/); the only loader source is [loader/scans.ps1](loader/scans.ps1). The site builder copies it unchanged into its deployment output. The utility remains at the root until the bootstrap release works. New stable tags must use `vMAJOR.MINOR.PATCH`; historical four-part tags are retained and linked through GitHub Releases, but not exposed through the new checksum-verified channel.
+Website source is in [site/](site/); the only loader source is [scans.ps1](scans.ps1). The site builder copies it unchanged into its deployment output. The actual utility is [src/scans.ps1](src/scans.ps1); release packaging selects that file, never the loader. New stable tags must use `vMAJOR.MINOR.PATCH`; historical four-part tags are retained and linked through GitHub Releases, but not exposed through the new checksum-verified channel.
 
 Work on a feature branch and open a pull request. The [CI workflow](.github/workflows/ci.yml) runs syntax checks and mocked Pester tests on Windows using both Windows PowerShell 5.1 and PowerShell 7. Its **Required checks** job passes only when both test jobs succeed, including when using a merge queue. CI also runs after pushes to `main` and can be started manually.
 

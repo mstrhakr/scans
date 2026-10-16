@@ -1,5 +1,29 @@
 'use strict';
 
+function addCopyButton(container, code, label) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'copy-command';
+  button.textContent = 'Copy command';
+  button.setAttribute('aria-label', label);
+  const feedback = document.createElement('p');
+  feedback.className = 'copy-status';
+  feedback.setAttribute('role', 'status');
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    feedback.textContent = '';
+    try {
+      await navigator.clipboard.writeText(code.textContent);
+      feedback.textContent = 'Copied!';
+    } catch (error) {
+      feedback.textContent = 'Could not copy. Select the command and copy it manually.';
+    } finally {
+      button.disabled = false;
+    }
+  });
+  container.append(button, feedback);
+}
+
 async function showReleases() {
   const status = document.getElementById('stable-status');
   const list = document.getElementById('release-list');
@@ -24,10 +48,14 @@ async function showReleases() {
       const notes = document.createElement('a');
       notes.href = release.releaseUrl;
       notes.textContent = 'Changes and downloads';
-      const command = document.createElement('pre');
+      const command = document.createElement('div');
+      command.className = 'command-block';
+      const pre = document.createElement('pre');
       const code = document.createElement('code');
       code.textContent = `& ([scriptblock]::Create((irm https://scans.printmaster.work/scans.ps1))) -Version '${release.version}'`;
-      command.append(code);
+      pre.append(code);
+      command.append(pre);
+      addCopyButton(command, code, `Copy command for ${release.version}`);
       const hash = document.createElement('p');
       hash.className = 'checksum';
       hash.textContent = `SHA-256: ${release.sha256}`;
@@ -42,4 +70,9 @@ async function showReleases() {
   }
 }
 
+addCopyButton(
+  document.getElementById('setup-command'),
+  document.getElementById('setup-command-text'),
+  'Copy stable setup command'
+);
 showReleases();

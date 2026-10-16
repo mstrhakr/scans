@@ -22,7 +22,7 @@ if (Test-Path -LiteralPath $OutputDirectory) { throw 'Site output directory must
 $root = Split-Path $PSScriptRoot -Parent
 New-Item -Path $OutputDirectory -ItemType Directory | Out-Null
 Copy-Item -Path (Join-Path $root 'site\*') -Destination $OutputDirectory -Recurse
-Copy-Item -LiteralPath (Join-Path $root 'loader\scans.ps1') -Destination (Join-Path $OutputDirectory 'scans.ps1')
+Copy-Item -LiteralPath (Join-Path $root 'scans.ps1') -Destination (Join-Path $OutputDirectory 'scans.ps1')
 Copy-Item -Path (Join-Path $root 'img') -Destination $OutputDirectory -Recurse
 $manifest = [ordered]@{
 	schemaVersion = 1

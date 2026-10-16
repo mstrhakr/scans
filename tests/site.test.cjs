@@ -9,9 +9,11 @@ const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '..', 'site', 'releases.js'), 'utf8');
 
 class Element {
-  constructor() { this.children = []; this.textContent = ''; }
+  constructor() { this.children = []; this.textContent = ''; this.attributes = {}; this.listeners = {}; }
   append(...children) { this.children.push(...children); }
   replaceChildren(...children) { this.children = children; }
+  setAttribute(name, value) { this.attributes[name] = value; }
+  addEventListener(name, listener) { this.listeners[name] = listener; }
 }
 
 function release(version) {
@@ -23,9 +25,16 @@ function release(version) {
   };
 }
 
-async function render(manifest, ok = true) {
-  const elements = { 'stable-status': new Element(), 'release-list': new Element() };
+async function render(manifest, ok = true, clipboard = { writeText: async () => {} }) {
+  const elements = {
+    'stable-status': new Element(),
+    'release-list': new Element(),
+    'setup-command': new Element(),
+    'setup-command-text': new Element()
+  };
+  elements['setup-command-text'].textContent = 'irm https://scans.printmaster.work/scans.ps1 | iex';
   const context = vm.createContext({
+    navigator: { clipboard },
     document: {
       getElementById: id => elements[id],
       createElement: () => new Element()
@@ -42,9 +51,51 @@ test('renders stable and pinned releases with matching version commands and hash
   const cards = elements['release-list'].children;
   assert.equal(cards.length, 2);
   assert.match(cards[0].children[0].textContent, /stable/);
-  assert.match(cards[1].children[2].children[0].textContent, /-Version 'v2\.0\.3'/);
+  assert.match(cards[1].children[2].children[0].children[0].textContent, /-Version 'v2\.0\.3'/);
   assert.equal(cards[1].children[1].href, release('v2.0.3').releaseUrl);
   assert.match(cards[1].children[3].textContent, new RegExp('a'.repeat(64)));
+});
+
+test('copies the exact stable and pinned commands with accessible success feedback', async () => {
+  const copied = [];
+  const elements = await render(
+    { schemaVersion: 1, stable: 'v2.1.0', releases: [release('v2.1.0')] },
+    true,
+    { writeText: async text => { copied.push(text); } }
+  );
+  const [stableButton, stableFeedback] = elements['setup-command'].children;
+  assert.equal(stableButton.type, 'button');
+  assert.equal(stableButton.attributes['aria-label'], 'Copy stable setup command');
+  const pending = stableButton.listeners.click();
+  assert.equal(stableButton.disabled, true);
+  await pending;
+  assert.equal(stableButton.disabled, false);
+  assert.equal(stableFeedback.textContent, 'Copied!');
+  assert.equal(stableFeedback.attributes.role, 'status');
+  const [, pinnedButton, pinnedFeedback] = elements['release-list'].children[0].children[2].children;
+  assert.equal(pinnedButton.attributes['aria-label'], 'Copy command for v2.1.0');
+  await pinnedButton.listeners.click();
+  assert.equal(pinnedFeedback.textContent, 'Copied!');
+  assert.deepEqual(copied, [
+    'irm https://scans.printmaster.work/scans.ps1 | iex',
+    "& ([scriptblock]::Create((irm https://scans.printmaster.work/scans.ps1))) -Version 'v2.1.0'"
+  ]);
+});
+
+test('reports clipboard rejection or unavailable API and allows retry without hiding commands', async () => {
+  for (const clipboard of [
+    null,
+    { writeText: async () => { throw new Error('Permission denied'); } }
+  ]) {
+    const elements = await render(null, false, clipboard);
+    const [button, feedback] = elements['setup-command'].children;
+    await button.listeners.click();
+    assert.match(feedback.textContent, /Could not copy.*manually/);
+    assert.equal(button.disabled, false);
+    assert.equal(elements['setup-command-text'].textContent, 'irm https://scans.printmaster.work/scans.ps1 | iex');
+    await button.listeners.click();
+    assert.match(feedback.textContent, /Could not copy/);
+  }
 });
 
 test('reports network failure rather than displaying a success-shaped release list', async () => {

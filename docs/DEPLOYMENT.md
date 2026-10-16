@@ -2,6 +2,12 @@
 
 ## Rollout order
 
+### Cutover PR merge gate
+
+This branch implements steps 9-10 below: the canonical loader is now root `scans.ps1`, the utility is `src/scans.ps1`, and Pages copies the root loader unchanged. Earlier preparation instructions below describe the historical bootstrap layout.
+
+**Do not merge this cutover until** a published release has deployed successfully, `https://scans.printmaster.work/releases.json` and `/scans.ps1` work over valid HTTPS, stable/pinned commands have been smoke-tested, and the old raw URL's transfer redirect is verified. After merging, refresh Pages from main with an already-published version; no new utility release is needed just to refresh the loader. Future release packages must contain the utility, not the loader, with metadata source path `src/scans.ps1`.
+
 1. Finish testing this preparation branch. It intentionally keeps the existing root utility and raw-main command working. It does not transfer the repository, configure DNS, or deploy anything.
 2. Transfer `mstrhakr/scans` to **printmaster-org/scans**, preserving the repository name. Transfer before merging this preparation PR. GitHub normally redirects repository links, but explicitly verify old clone and raw-content URLs; do not recreate a repository at the old location.
 3. Update the local remote to the transferred repository using your SSH host alias as appropriate. Verify Actions is enabled and allowed actions are permitted by organization policy. Verify the `main` protection still requires PRs, up-to-date branches, and **Required checks**, including for admins. Check the transferred PR and CI runs under the new owner.
