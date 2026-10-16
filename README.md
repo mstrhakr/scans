@@ -1,8 +1,16 @@
-# **Scanning Setup Utility**
+![PrintMaster Scans banner](img/banner.png)
 
+[![Latest release](https://img.shields.io/github/v/release/Printmaster-Org/scans?label=release&color=268BD2&style=flat)](https://github.com/Printmaster-Org/scans/releases/latest)
+[![CI](https://github.com/Printmaster-Org/scans/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Printmaster-Org/scans/actions/workflows/ci.yml)
+[![Release downloads](https://img.shields.io/github/downloads/Printmaster-Org/scans/total?color=2AA198&style=flat)](https://github.com/Printmaster-Org/scans/releases)
+[![Documentation](https://img.shields.io/badge/docs-scan--to--SMB-268BD2?style=flat)](https://docs.printmaster.work/guides/scans/)
 ![Profile Views](https://komarev.com/ghpvc/?username=mstrhakr-scans&label=views&color=268BD2&style=flat)
 
 A lightweight PowerShell utility that configures a Windows PC for network scanning in one click. Creates a dedicated scan user, shared folder, firewall rules, and desktop shortcut — no manual setup required.
+
+Provided by [PrintMaster](https://printmaster.work/). This is a standalone utility; no PrintMaster Agent or Server is required.
+
+**[Get started](https://scans.printmaster.work/)** · **[Setup and troubleshooting guide](https://docs.printmaster.work/guides/scans/)**
 
 ## Quick Start
 
@@ -63,6 +71,8 @@ First choose the inputs — the password is randomly generated with a cryptograp
 ![Setup](img/scans-setup.png)
 
 The UI automatically matches your Windows theme (light or dark).
+
+App windows use the PrintMaster logo and attribution. The scan-folder desktop shortcut keeps its original scan icon. The self-contained utility embeds the window logo as WPF vector artwork matching [site/logo.svg](site/logo.svg), so branding needs no extra download. The screenshots below may show an earlier release.
 
 ![Setup Light Theme](img/scans-setup-theme.png)
 
