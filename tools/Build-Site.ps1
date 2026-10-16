@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Release.Common.ps1')
 Assert-ReleaseVersion $StableVersion
-$catalog = @(Get-Content -LiteralPath $CatalogPath -Raw | ConvertFrom-Json)
+$catalog = @(Get-Content -LiteralPath $CatalogPath -Raw | ConvertFrom-Json | ForEach-Object { $_ })
 $versions = @()
 foreach ($release in $catalog) {
 	Assert-ReleaseVersion $release.version

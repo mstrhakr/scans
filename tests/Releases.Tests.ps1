@@ -188,6 +188,38 @@ Describe 'Verified loader execution' {
 			Test-Path $script:catalogFile | Should Be $false
 		}
 
+		It 'reads every page of published releases' {
+			$older = [pscustomobject]@{
+				tag_name = 'v2.0.3'; draft = $false; prerelease = $false; published_at = '2026-10-14T12:00:00Z'
+			}
+			$global:ScansCatalogTestState.Pages = @(@($script:published), @($older))
+			Mock gh {
+				$state = $global:ScansCatalogTestState
+				$global:LASTEXITCODE = 0
+				if ($Command -eq 'api' -and $Target -like '*releases?per_page*') {
+					ConvertTo-Json -InputObject $state.Pages -Depth 5
+				}
+				elseif ($Command -eq 'api' -and $Target -like '*commits/*') {
+					'b' * 40
+				}
+				elseif ($Command -eq 'release' -and $Target -eq 'download') {
+					$directory = $Arguments[[Array]::IndexOf($Arguments, '--dir') + 1]
+					$version = $Arguments[0]
+					Copy-Item -LiteralPath $state.Fixture -Destination (Join-Path $directory 'scans.ps1')
+					$metadata = $state.Metadata | ConvertTo-Json | ConvertFrom-Json
+					$metadata.version = $version
+					$metadata | ConvertTo-Json | Set-Content (Join-Path $directory 'release.json')
+					"$($metadata.sha256)  scans.ps1" | Set-Content (Join-Path $directory 'SHA256SUMS.txt')
+				}
+				else { throw "Unexpected GitHub call: $Command $Target $Arguments" }
+			}
+			& (Join-Path $root 'tools\Get-ReleaseCatalog.ps1') -OutputFile $script:catalogFile
+			$catalog = @(Get-Content $script:catalogFile -Raw | ConvertFrom-Json | ForEach-Object { $_ })
+			$catalog.Count | Should Be 2
+			$catalog[0].version | Should Be 'v2.1.0'
+			$catalog[1].version | Should Be 'v2.0.3'
+		}
+
 		It 'refuses a tag pointing to a different source commit' {
 			$script:metadata.sourceCommit = 'c' * 40
 			{ & (Join-Path $root 'tools\Get-ReleaseCatalog.ps1') -OutputFile $script:catalogFile } | Should Throw 'different source commit'
@@ -296,6 +328,15 @@ Describe 'Release packaging and site generation' {
 		$manifest = Get-Content (Join-Path $script:site 'releases.json') -Raw | ConvertFrom-Json
 		$manifest.stable | Should Be 'v2.0.3'
 		$manifest.releases.Count | Should Be 2
+	}
+
+	It 'keeps the first release as an array in the generated manifest' {
+		ConvertTo-Json -InputObject @((New-TestRelease)) | Set-Content $script:catalogPath
+		& (Join-Path $root 'tools\Build-Site.ps1') -CatalogPath $script:catalogPath -StableVersion v2.1.0 -OutputDirectory $script:site
+		$manifest = Get-Content (Join-Path $script:site 'releases.json') -Raw | ConvertFrom-Json
+		$manifest.releases -is [array] | Should Be $true
+		$manifest.releases.Count | Should Be 1
+		(Get-ScanRelease -Manifest $manifest).version | Should Be 'v2.1.0'
 	}
 
 	It 'rejects unknown stable versions and duplicate or untrusted catalog entries' {
