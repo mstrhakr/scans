@@ -174,12 +174,29 @@ Describe 'Verified loader execution' {
 		AfterEach { Remove-Variable -Name ScansCatalogTestState -Scope Global -ErrorAction SilentlyContinue }
 
 		It 'verifies published bytes and source while excluding old, draft, and prerelease tags' {
-			& (Join-Path $root 'tools\Get-ReleaseCatalog.ps1') -OutputFile $script:catalogFile
+			& (Join-Path $root 'tools\Get-ReleaseCatalog.ps1') -OutputFile $script:catalogFile -SelectedVersion v2.1.0
 			$catalog = @(Get-Content $script:catalogFile -Raw | ConvertFrom-Json)
 			$catalog.Count | Should Be 1
 			$catalog[0].version | Should Be 'v2.1.0'
 			$catalog[0].sha256 | Should Be $script:metadata.sha256
 			Assert-MockCalled gh -Times 1 -Exactly -Scope It -ParameterFilter { $Command -eq 'release' -and $Target -eq 'download' }
+		}
+
+		It 'explains how to publish the selected draft instead of returning an empty catalog error' {
+			$script:published.draft = $true
+			{ & (Join-Path $root 'tools\Get-ReleaseCatalog.ps1') -OutputFile $script:catalogFile -SelectedVersion v2.1.0 } |
+				Should Throw "Release 'v2.1.0' is still a draft"
+			Assert-MockCalled gh -Times 0 -Exactly -Scope It -ParameterFilter { $Command -eq 'release' -and $Target -eq 'download' }
+			Test-Path $script:catalogFile | Should Be $false
+		}
+
+		It 'rejects missing releases and prereleases before downloading assets' {
+			{ & (Join-Path $root 'tools\Get-ReleaseCatalog.ps1') -OutputFile $script:catalogFile -SelectedVersion v8.0.0 } |
+				Should Throw 'A Git tag alone is not a published release'
+			$script:published.prerelease = $true
+			{ & (Join-Path $root 'tools\Get-ReleaseCatalog.ps1') -OutputFile $script:catalogFile -SelectedVersion v2.1.0 } |
+				Should Throw 'prerelease and cannot be promoted'
+			Assert-MockCalled gh -Times 0 -Exactly -Scope It -ParameterFilter { $Command -eq 'release' -and $Target -eq 'download' }
 		}
 
 		It 'refuses metadata hashes that do not match the release asset' {
@@ -248,7 +265,14 @@ Describe 'Verified loader execution' {
 			& (Join-Path $root 'tools\New-ReleasePackage.ps1') -Version v2.1.0 -SourceCommit ('b' * 40) -OutputDirectory $script:draftPackage
 			Mock gh {
 				$global:LASTEXITCODE = 0
-				if ($Command -eq 'api') { '{"body":"## Changes\n- Example merged PR"}' }
+				if ($Command -eq 'api' -and $Target -like '*commits/*') { 'b' * 40 }
+				elseif ($Command -eq 'api' -and $Target -like '*actions/workflows/ci.yml/runs?*') {
+					ConvertTo-Json -InputObject @(@{ workflow_runs = @(@{
+						id = 100; head_sha = 'b' * 40; event = 'push'; head_branch = 'main'
+						status = 'completed'; conclusion = 'success'; html_url = 'https://github.com/Printmaster-Org/scans/actions/runs/100'
+					}) }) -Depth 6
+				}
+				elseif ($Command -eq 'api') { '{"body":"## Changes\n- Example merged PR"}' }
 			}
 		}
 		AfterEach {
@@ -282,7 +306,107 @@ Describe 'Verified loader execution' {
 			{ & (Join-Path $root 'tools\New-DraftRelease.ps1') -Version v2.1.0 -SourceCommit ('c' * 40) -PackageDirectory $script:draftPackage } | Should Throw 'tested commit'
 			Assert-MockCalled gh -Times 0 -Exactly -Scope It
 		}
+
+		It 'accepts the matching tag trigger and requires existing main CI' {
+			$env:GITHUB_REF = 'refs/tags/v2.1.0'
+			& (Join-Path $root 'tools\New-DraftRelease.ps1') -Version v2.1.0 -SourceCommit ('b' * 40) -PackageDirectory $script:draftPackage
+			Assert-MockCalled gh -Times 1 -Exactly -Scope It -ParameterFilter { $Target -like '*actions/workflows/ci.yml/runs?*' }
+		}
+
+		It 'rejects tags that do not match the packaged commit' {
+			Mock gh { $global:LASTEXITCODE = 0; 'c' * 40 }
+			{ & (Join-Path $root 'tools\New-DraftRelease.ps1') -Version v2.1.0 -SourceCommit ('b' * 40) -PackageDirectory $script:draftPackage } | Should Throw 'tag must exist'
+			Assert-MockCalled gh -Times 0 -Exactly -Scope It -ParameterFilter { $Target -like '*actions/workflows/ci.yml/runs?*' }
+		}
+
+		It 'does not create a draft when main CI has not passed' {
+			Mock gh { throw 'CI evidence unavailable' } -ParameterFilter { $Target -like '*actions/workflows/ci.yml/runs?*' }
+			{ & (Join-Path $root 'tools\New-DraftRelease.ps1') -Version v2.1.0 -SourceCommit ('b' * 40) -PackageDirectory $script:draftPackage } | Should Throw 'CI evidence unavailable'
+			Assert-MockCalled gh -Times 0 -Exactly -Scope It -ParameterFilter { $Command -eq 'release' }
+		}
 	}
+
+Describe 'Reusing exact main commit CI evidence' {
+	BeforeEach {
+		$global:ScansCITestRuns = @([pscustomobject]@{
+			id = 100; head_sha = 'b' * 40; event = 'push'; head_branch = 'main'
+			status = 'completed'; conclusion = 'success'; html_url = 'https://github.com/Printmaster-Org/scans/actions/runs/100'
+		})
+		Mock gh {
+			$global:LASTEXITCODE = 0
+			ConvertTo-Json -InputObject @(@{ workflow_runs = @($global:ScansCITestRuns) }) -Depth 6
+		}
+		Mock Start-Sleep { }
+	}
+	AfterEach { Remove-Variable ScansCITestRuns -Scope Global -ErrorAction SilentlyContinue }
+
+	It 'reuses main-push CI for the exact SHA and only the CI workflow' {
+		Assert-CommitCI -SourceCommit ('b' * 40) -MaxAttempts 1
+		Assert-MockCalled gh -Times 1 -Exactly -Scope It -ParameterFilter {
+			$Target -like 'repos/printmaster-org/scans/actions/workflows/ci.yml/runs?*' -and
+			$Target.Contains('event=push&branch=main&head_sha=' + ('b' * 40))
+		}
+		Assert-MockCalled Start-Sleep -Times 0 -Exactly -Scope It
+	}
+
+	It 'rejects PR evidence, other commits, and runs on other branches' {
+		$global:ScansCITestRuns[0].event = 'pull_request'
+		{ Assert-CommitCI -SourceCommit ('b' * 40) -MaxAttempts 1 } | Should Throw 'No completed successful'
+		$global:ScansCITestRuns[0].event = 'push'
+		$global:ScansCITestRuns[0].head_sha = 'c' * 40
+		{ Assert-CommitCI -SourceCommit ('b' * 40) -MaxAttempts 1 } | Should Throw
+		$global:ScansCITestRuns[0].head_sha = 'b' * 40
+		$global:ScansCITestRuns[0].head_branch = 'feature/test'
+		{ Assert-CommitCI -SourceCommit ('b' * 40) -MaxAttempts 1 } | Should Throw
+	}
+
+	It 'fails immediately for failed, cancelled, or skipped CI' {
+		foreach ($conclusion in @('failure', 'cancelled', 'skipped', 'timed_out')) {
+			$global:ScansCITestRuns[0].conclusion = $conclusion
+			{ Assert-CommitCI -SourceCommit ('b' * 40) -MaxAttempts 2 } | Should Throw 'did not pass'
+		}
+		Assert-MockCalled Start-Sleep -Times 0 -Exactly -Scope It
+	}
+
+	It 'waits for existing in-progress CI instead of dispatching new tests' {
+		$global:ScansCITestRuns[0].status = 'in_progress'
+		Mock Start-Sleep { $global:ScansCITestRuns[0].status = 'completed' }
+		Assert-CommitCI -SourceCommit ('b' * 40) -MaxAttempts 2 -RetrySeconds 0
+		Assert-MockCalled gh -Times 2 -Exactly -Scope It
+		Assert-MockCalled Start-Sleep -Times 1 -Exactly -Scope It
+	}
+
+	It 'waits briefly for a main-push run that has not appeared yet' {
+		$global:ScansCITestRuns = @()
+		{ Assert-CommitCI -SourceCommit ('b' * 40) -MaxAttempts 2 -RetrySeconds 0 } | Should Throw 'No completed successful'
+		Assert-MockCalled Start-Sleep -Times 1 -Exactly -Scope It
+	}
+
+	It 'does not fall back to an older success when a newer run failed' {
+		$failed = $global:ScansCITestRuns[0] | ConvertTo-Json | ConvertFrom-Json
+		$failed.id = 101
+		$failed.conclusion = 'failure'
+		$global:ScansCITestRuns += $failed
+		{ Assert-CommitCI -SourceCommit ('b' * 40) -MaxAttempts 1 } | Should Throw 'did not pass'
+	}
+
+	It 'fails explicitly if GitHub cannot supply CI evidence' {
+		Mock gh { $global:LASTEXITCODE = 1 }
+		{ Assert-CommitCI -SourceCommit ('b' * 40) -MaxAttempts 1 } | Should Throw 'Could not verify'
+	}
+}
+
+Describe 'Workflow dependency pinning' {
+	It 'pins every external action reference to a full commit SHA' {
+		$references = @(Get-ChildItem (Join-Path $root '.github\workflows') -Filter '*.yml' |
+			Select-String -Pattern 'uses:\s+([^\s#]+)' | ForEach-Object { $_.Matches[0].Groups[1].Value })
+		$references.Count | Should BeGreaterThan 0
+		foreach ($reference in $references) {
+			if ($reference.StartsWith('./')) { continue }
+			$reference | Should Match '^[\w.-]+/[\w./-]+@[a-f0-9]{40}$'
+		}
+	}
+}
 
 Describe 'Release packaging and site generation' {
 	BeforeEach {
@@ -305,6 +429,14 @@ Describe 'Release packaging and site generation' {
 	It 'rejects invalid package versions before producing output' {
 		{ & (Join-Path $root 'tools\New-ReleasePackage.ps1') -Version v2.0.2.0 -SourceCommit ('b' * 40) -OutputDirectory $script:package } | Should Throw
 		Test-Path $script:package | Should Be $false
+	}
+
+	It 'packages the selected tag checkout rather than the workflow checkout' {
+		$source = Join-Path $TestDrive 'tag-checkout'
+		New-Item -Path $source -ItemType Directory -Force | Out-Null
+		Set-Content -LiteralPath (Join-Path $source 'scans.ps1') -Value '# selected tagged utility'
+		& (Join-Path $root 'tools\New-ReleasePackage.ps1') -Version v2.1.0 -SourceCommit ('b' * 40) -SourceDirectory $source -OutputDirectory $script:package
+		(Get-Content (Join-Path $script:package 'scans.ps1') -Raw).Trim() | Should Be '# selected tagged utility'
 	}
 
 	It 'builds the manifest, pinned history, and byte-identical shared loader without modifying source' {

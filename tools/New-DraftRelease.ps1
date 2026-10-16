@@ -7,12 +7,16 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Release.Common.ps1')
 Assert-ReleaseVersion $Version
 $repository = 'printmaster-org/scans'
-if ($env:GITHUB_REPOSITORY -ine $repository -or $env:GITHUB_REF -ne 'refs/heads/main') {
-	throw 'Draft releases must be prepared from main in printmaster-org/scans.'
+if ($env:GITHUB_REPOSITORY -ine $repository -or
+	$env:GITHUB_REF -cnotin @('refs/heads/main', "refs/tags/$Version")) {
+	throw 'Draft releases must be prepared from main or the matching release tag in printmaster-org/scans.'
 }
 $metadata = Get-Content -LiteralPath (Join-Path $PackageDirectory 'release.json') -Raw | ConvertFrom-Json
 Assert-ReleaseMetadata -Metadata $metadata -Version $Version -ScriptPath (Join-Path $PackageDirectory 'scans.ps1')
 if ($metadata.sourceCommit -cne $SourceCommit) { throw 'Package source does not match the tested commit.' }
+$tagCommit = gh api "repos/$repository/commits/$Version" --jq .sha
+if ($LASTEXITCODE -ne 0 -or $tagCommit -cne $SourceCommit) { throw 'The release tag must exist and match the packaged commit.' }
+Assert-CommitCI -SourceCommit $SourceCommit
 $request = @{ tag_name = $Version; target_commitish = $SourceCommit } | ConvertTo-Json
 $response = $request | gh api "repos/$repository/releases/generate-notes" --method POST --input -
 if ($LASTEXITCODE -ne 0) { throw 'Could not generate release notes.' }
@@ -34,6 +38,7 @@ Direct download: https://github.com/$repository/releases/download/$Version/scans
 SHA-256: ``$($metadata.sha256)``
 
 Tested source commit: $SourceCommit
+Validation: successful main-push CI for this exact commit (reused, not rerun).
 
 Windows 11 is the primary platform; Windows 10 22H2 is best-effort compatibility.
 Historical four-part release tags remain unchanged; new releases use SemVer.

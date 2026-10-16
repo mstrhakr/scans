@@ -1,13 +1,25 @@
 param(
 	[Parameter(Mandatory)][string]$OutputFile,
-	[string]$Repository = 'printmaster-org/scans'
+	[string]$Repository = 'printmaster-org/scans',
+	[string]$SelectedVersion
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Release.Common.ps1')
 if ($Repository -ine 'printmaster-org/scans') { throw 'Release publication is restricted to printmaster-org/scans.' }
+if ($SelectedVersion) { Assert-ReleaseVersion $SelectedVersion }
 $pages = gh api "repos/$Repository/releases?per_page=100" --paginate --slurp
 if ($LASTEXITCODE -ne 0) { throw 'Could not list GitHub releases.' }
 $releases = @($pages | ConvertFrom-Json | ForEach-Object { $_ } | ForEach-Object { $_ })
+if ($SelectedVersion) {
+	$selected = @($releases | Where-Object { $_.tag_name -ceq $SelectedVersion })
+	if ($selected.Count -ne 1) {
+		throw "Release '$SelectedVersion' was not found or is not visible to this workflow. A Git tag alone is not a published release. Prepare its draft, review it, then publish it in GitHub Releases before promoting."
+	}
+	if ($selected[0].draft) {
+		throw "Release '$SelectedVersion' is still a draft. Review its notes and test its assets, then click Publish release in GitHub Releases. Publishing starts Pages promotion automatically; a manual promotion does not publish the draft."
+	}
+	if ($selected[0].prerelease) { throw "Release '$SelectedVersion' is a prerelease and cannot be promoted to stable." }
+}
 $catalog = @()
 $work = Join-Path ([IO.Path]::GetTempPath()) ("scans-catalog-" + [guid]::NewGuid().ToString('N'))
 New-Item -Path $work -ItemType Directory | Out-Null
