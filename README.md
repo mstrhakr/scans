@@ -108,7 +108,11 @@ Pushing a stable SemVer tag starts the [Prepare release workflow](.github/workfl
 
 Website source is in [site/](site/); the only loader source is [scans.ps1](scans.ps1). The site builder copies it unchanged into its deployment output. The actual utility is [src/scans.ps1](src/scans.ps1); release packaging selects that file, never the loader. New stable tags must use `vMAJOR.MINOR.PATCH`; historical four-part tags are retained and linked through GitHub Releases, but not exposed through the new checksum-verified channel.
 
-The landing page follows the PrintMaster site's Solarized palette, teal accents, wordmark, panel styling, and cross-site navigation. Styles and the logo are local to this repository; navigation works without JavaScript, and the layout supports light/dark preferences, keyboard navigation, and reduced motion. Release rendering and copy buttons use [site/releases.js](site/releases.js).
+The landing page follows the PrintMaster site's Solarized palette, teal accents, wordmark, and panel styling. Standalone navigation is Scans-focused: its brand links home locally, setup and release links stay on the page, and external Scans resources are explicitly labeled. The footer separates Agent/Server downloads and fleet-monitoring links under "More from PrintMaster." Styles and the logo are local to this repository; navigation works without JavaScript, and the layout supports light/dark preferences, keyboard navigation, and reduced motion. Release rendering and copy buttons use [site/releases.js](site/releases.js).
+
+The main website can frame `https://scans.printmaster.work/?embed=1` at `/scans/`. [site/embed.js](site/embed.js) hides this site's header/footer and locks the dark palette only after a handshake from the immediate parent at `https://printmaster.work`. Without that handshake (including direct visits and JavaScript disabled), the full standalone site remains visible. Origin- and source-checked messages report content height and anchor positions to the main site's wrapper. External links open at the top level; setup commands retain their canonical standalone URLs. The main site owns its header/footer and clipboard delegation. Deploy this embed support before the main-site wrapper.
+
+The handshake restricts embed-mode activation, not who can frame the public standalone site. GitHub Pages cannot set a custom HTTP `Content-Security-Policy: frame-ancestors` header; a meta tag cannot enforce it. If the domain later uses a configurable edge/server, set `frame-ancestors 'self' https://printmaster.work` there and avoid `X-Frame-Options: DENY`/`SAMEORIGIN`, which would block the cross-origin main-site frame.
 
 Work on a feature branch and open a pull request. The [CI workflow](.github/workflows/ci.yml) runs syntax checks and mocked Pester tests on Windows using both Windows PowerShell 5.1 and PowerShell 7. Its **Required checks** job passes only when both test jobs succeed, including when using a merge queue. CI also runs after pushes to `main` and can be started manually.
 
@@ -135,7 +139,7 @@ From the repository root, run either runtime:
 ```powershell
 powershell.exe -NoProfile -STA -File .\tests\Invoke-Tests.ps1
 pwsh.exe -NoProfile -STA -File .\tests\Invoke-Tests.ps1
-node --test .\tests\site.test.cjs
+node --test .\tests\site.test.cjs .\tests\embed.test.cjs
 ```
 
 The [test runner](tests/Invoke-Tests.ps1) fails on syntax errors, failing tests, or an empty test run. The [regression suite](tests/Scans.Tests.ps1) extracts function definitions without running the utility's elevation or setup code. Account, registry, filesystem, SMB, firewall, clipboard-related setup gating, and COM changes are mocked; WPF windows are loaded but never displayed. Tests cover password failures, error-popup routing, account visibility, folder setup, shares, network configuration, shortcuts, generated password shape, and setup options. The generator tests do not claim that every generated password satisfies policy.
