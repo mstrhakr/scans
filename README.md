@@ -97,9 +97,11 @@ When finished, copy the password and click Done.
 
 Windows can reject a scan-account password that does not meet the effective local or domain Group Policy requirements, even for a local account. A short, lowercase-only password may fail minimum-length or complexity rules.
 
-If Windows reports `InvalidPassword` (or `net user` system error `2245` on older systems), setup displays a password-specific popup and remediation tip. It skips hiding the account, folder permissions, and SMB share configuration when account setup fails, and leaves **Copy Password** disabled so an unapplied password is not presented as usable. Independent steps, such as folder creation and network configuration, can still run.
+If Windows reports `InvalidPassword` (or `net user` system error `2245` on older systems), setup pauses and returns to password entry. Enter a replacement or click **Generate**, then **Retry**. Account setup is retried before hiding the account, setting folder permissions, configuring the SMB share, or running any other remaining steps. Your other setup choices are preserved. If Windows rejects another password, you can edit or generate one and retry again.
 
-Run setup again with the generated password or a longer password containing uppercase and lowercase letters, numbers, and symbols, without the username. Generated passwords are not guaranteed to satisfy every policy. If the password is still rejected, ask your administrator for the effective minimum length, complexity, history, and any additional restrictions rather than disabling the policy.
+Choosing **Cancel setup** or closing the password dialog stops the remaining setup steps and leaves **Copy Password** disabled. After a successful retry, setup continues normally and copies only the accepted password when requested.
+
+Use the generated password or a longer password containing uppercase and lowercase letters, numbers, and symbols, without the username. Generated passwords are not guaranteed to satisfy every policy. If the password is still rejected, ask your administrator for the effective minimum length, complexity, history, and any additional restrictions rather than disabling the policy.
 
 ### Other setup errors
 

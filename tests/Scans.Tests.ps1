@@ -251,6 +251,7 @@ Describe 'Account-dependent setup steps' {
 		Mock Show-StepResult { if ($result.Error) { $script:hasErrors = $true } }
 		Mock Get-CimInstance { [pscustomobject]@{ PartOfDomain = $false } }
 		Mock Initialize-ScanUser { $script:testUserResults }
+		Mock Show-PasswordRetryDialog { throw 'Unexpected password retry dialog' }
 		Mock Initialize-ScanFolder { }
 		Mock Initialize-ScanShare { }
 		Mock Initialize-DesktopShortcut { }
@@ -283,6 +284,67 @@ Describe 'Account-dependent setup steps' {
 		Assert-MockCalled Initialize-ScanFolder -Times 1 -Exactly -Scope It -ParameterFilter { $SetPermissions }
 		Assert-MockCalled Initialize-ScanShare -Times 1 -Exactly -Scope It
 		$script:controls.btnCopyPassword.IsEnabled | Should Be $true
+	}
+
+	It 'pauses for replacement passwords until accepted, then resumes all selected steps' {
+		$script:scanPass = 'Rejected'
+		$script:attempts = 0
+		Mock Initialize-ScanUser {
+			$script:attempts++
+			if ($script:attempts -lt 3) {
+				@{ Status = 'Failed'; Error = 'Policy rejected'; ErrorId = 'InvalidPassword,NewLocalUserCommand'; AccountSetupFailed = $true }
+			}
+			else { @{ Status = 'Success'; Message = 'Account configured'; Error = $null } }
+		}
+		Mock Show-PasswordRetryDialog {
+			Assert-MockCalled Initialize-ScanFolder -Times 0 -Exactly -Scope It
+			Assert-MockCalled Initialize-ScanShare -Times 0 -Exactly -Scope It
+			Assert-MockCalled Set-NetworkConfiguration -Times 0 -Exactly -Scope It
+			"Replacement$script:attempts!"
+		}
+		. $script:runSteps
+		Assert-MockCalled Initialize-ScanUser -Times 3 -Exactly -Scope It
+		Assert-MockCalled Initialize-ScanUser -Times 1 -Exactly -Scope It -ParameterFilter { $Password -eq 'Replacement2!' -and $HideFromLogin }
+		Assert-MockCalled Show-PasswordRetryDialog -Times 2 -Exactly -Scope It
+		Assert-MockCalled Initialize-ScanFolder -Times 1 -Exactly -Scope It -ParameterFilter { $SetPermissions }
+		Assert-MockCalled Initialize-ScanShare -Times 1 -Exactly -Scope It
+		Assert-MockCalled Initialize-DesktopShortcut -Times 1 -Exactly -Scope It
+		Assert-MockCalled Set-NetworkConfiguration -Times 1 -Exactly -Scope It
+		$script:scanPass | Should Be 'Replacement2!'
+		$script:hasErrors | Should Be $false
+		$script:progressWindow.Title | Should Be 'PrintMaster Scans Setup - Finished'
+		$script:controls.btnCopyPassword.IsEnabled | Should Be $true
+	}
+
+	It 'stops all remaining steps if password correction is canceled or closed' {
+		$script:testUserResults = @{ Status = 'Failed'; Error = '2245'; ErrorId = 'InvalidPassword'; AccountSetupFailed = $true }
+		Mock Show-PasswordRetryDialog { $null }
+		. $script:runSteps
+		Assert-MockCalled Initialize-ScanUser -Times 1 -Exactly -Scope It
+		Assert-MockCalled Initialize-ScanFolder -Times 0 -Exactly -Scope It
+		Assert-MockCalled Initialize-ScanShare -Times 0 -Exactly -Scope It
+		Assert-MockCalled Initialize-DesktopShortcut -Times 0 -Exactly -Scope It
+		Assert-MockCalled Set-NetworkConfiguration -Times 0 -Exactly -Scope It
+		Assert-MockCalled Show-StepResult -Times 0 -Exactly -Scope It
+		$script:controls.btnCopyPassword.IsEnabled | Should Be $false
+		$script:controls.btnDone.IsEnabled | Should Be $true
+		$script:progressWindow.Title | Should Be 'PrintMaster Scans Setup - Canceled'
+	}
+
+	It 'also offers correction for legacy error 2245 when only hiding is selected' {
+		$script:createUser = $false
+		Mock Initialize-ScanUser {
+			if ($Password -ne 'LegacyReplacement!') {
+				@{ Status = 'Failed'; Error = 'System error 2245'; AccountSetupFailed = $true }
+			}
+			else { @{ Status = 'Success'; Error = $null } }
+		}
+		Mock Show-PasswordRetryDialog { 'LegacyReplacement!' }
+		. $script:runSteps
+		Assert-MockCalled Show-PasswordRetryDialog -Times 1 -Exactly -Scope It
+		Assert-MockCalled Initialize-ScanUser -Times 2 -Exactly -Scope It -ParameterFilter { $HideFromLogin }
+		Assert-MockCalled Initialize-ScanShare -Times 1 -Exactly -Scope It
+		$script:controls.btnCopyPassword.IsEnabled | Should Be $false
 	}
 
 	It 'does not block shares when only hiding the successfully configured account fails' {
@@ -325,12 +387,12 @@ Describe 'Error popup routing' {
 		$script:hasErrors | Should Be $false
 	}
 
-	It 'shows password-specific remediation and safeguards' {
+	It 'shows password-specific remediation' {
 		Show-StepResult @{ Message = 'Account failed'; Error = 'Rejected'; ErrorId = 'InvalidPassword,NewLocalUserCommand' }
 		Assert-MockCalled Show-ErrorPopup -Times 1 -Exactly -Scope It -ParameterFilter {
 			$Title -eq 'Scan Account Password Rejected' -and
 			$Remediation -eq $script:Remediation.PasswordPolicy -and
-			$Message -match 'skipped' -and $Owner -eq $script:progressWindow
+			$Message -match 'Windows rejected' -and $Owner -eq $script:progressWindow
 		}
 		$script:hasErrors | Should Be $true
 	}
@@ -607,6 +669,47 @@ Describe 'Generated passwords' {
 	}
 }
 
+Describe 'Password correction dialog' {
+	BeforeEach {
+		Add-Type -AssemblyName PresentationFramework
+		$script:progressWindow = $null
+		$script:scanPass = 'Rejected'
+		foreach ($name in @('thBg', 'thBgAlt', 'thFg', 'thFgEm', 'thFgStrong', 'thAccent', 'thAccentHi', 'thBorder', 'thBtnText')) {
+			Set-Variable -Name $name -Value '#002b36' -Scope Script
+		}
+		$script:themeResources = ''
+		Mock New-RandomPassword { 'GeneratedReplacement123!' }
+		Mock Set-WindowTheme {
+			$window | Add-Member ScriptMethod ShowDialog {
+				$this.FindName('txtError').Text | Should Be 'Password policy rejected'
+				$this.FindName('txtPassword').Text | Should Be 'Rejected'
+				$this.FindName('txtPassword').Text = ''
+				$this.FindName('btnRetry').IsEnabled | Should Be $false
+				$this.FindName('txtPassword').Text = 'ManualReplacement!'
+				$this.FindName('btnRetry').IsEnabled | Should Be $true
+				$this.FindName('btnGenerate').RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent))
+				$this.FindName('txtPassword').Text | Should Be 'GeneratedReplacement123!'
+				return $script:retryAccepted
+			} -Force
+		}
+	}
+
+	It 'generates a replacement and returns only the accepted password without displaying a window' {
+		$script:retryAccepted = $true
+		Show-PasswordRetryDialog -ErrorText 'Password policy rejected' | Should Be 'GeneratedReplacement123!'
+		Assert-MockCalled New-RandomPassword -Times 1 -Exactly -Scope It
+		$script:scanPass | Should Be 'Rejected'
+	}
+
+	It 'returns no password when canceled or closed' {
+		foreach ($accepted in @($false, $null)) {
+			$script:retryAccepted = $accepted
+			$result = Show-PasswordRetryDialog -ErrorText 'Password policy rejected'
+			$result | Should BeNullOrEmpty
+		}
+	}
+}
+
 Describe 'WPF window markup' {
 	It 'renders the embedded PrintMaster window logo without external files' {
 		Add-Type -AssemblyName PresentationFramework
@@ -626,7 +729,7 @@ Describe 'WPF window markup' {
 		$offset = (32 * 64 + 46) * 4
 		($pixels[$offset..($offset + 3)] -join ',') | Should Be '120,187,72,255'
 		$source = Get-Content $sourcePath -Raw
-		([regex]::Matches($source, '\.Icon = New-PrintMasterIcon')).Count | Should Be 3
+		([regex]::Matches($source, '\.Icon = New-PrintMasterIcon')).Count | Should Be 4
 		$source | Should Match "Initialize-DesktopShortcut -FolderPath .folderPath -IconPath .iconPath"
 		$source | Should Match '\[IO.File\]::WriteAllBytes\(\$iconPath, \[Convert\]::FromBase64String\(\$script:appIconBase64\)\)'
 	}
@@ -667,7 +770,7 @@ Describe 'WPF window markup' {
 		foreach ($name in @('thBg', 'thBgAlt', 'thFg', 'thFgEm', 'thFgStrong', 'thAccent', 'thAccentHi', 'thBorder', 'thBtnText')) {
 			Set-Variable -Name $name -Value '#002b36' -Scope Script
 		}
-		foreach ($name in @('$script:themeResources', '$setupXaml', '$progressXaml')) {
+		foreach ($name in @('$script:themeResources', '$setupXaml', '$progressXaml', '$passwordRetryXaml')) {
 			$assignment = $ast.Find({
 				param($node)
 				$node -is [System.Management.Automation.Language.AssignmentStatementAst] -and
@@ -677,6 +780,12 @@ Describe 'WPF window markup' {
 		}
 		$setup = [Windows.Markup.XamlReader]::Load([System.Xml.XmlNodeReader]::new($setupXaml))
 		$progress = [Windows.Markup.XamlReader]::Load([System.Xml.XmlNodeReader]::new($progressXaml))
+		$passwordRetry = [Windows.Markup.XamlReader]::Load([System.Xml.XmlNodeReader]::new($passwordRetryXaml))
+		foreach ($name in @('txtError', 'txtRemediation', 'txtPassword', 'btnGenerate', 'btnRetry', 'btnCancel')) {
+			$passwordRetry.FindName($name) | Should Not BeNullOrEmpty
+		}
+		$passwordRetry.FindName('btnCancel').IsCancel | Should Be $true
+		$passwordRetry.FindName('btnRetry').IsDefault | Should Be $true
 		foreach ($window in @($setup, $progress)) {
 			$window.Icon = New-PrintMasterIcon
 			$window.Icon | Should Not BeNullOrEmpty
@@ -692,5 +801,6 @@ Describe 'WPF window markup' {
 		$progress.FindName('btnCopyPassword').IsEnabled | Should Be $false
 		$setup.Close()
 		$progress.Close()
+		$passwordRetry.Close()
 	}
 }

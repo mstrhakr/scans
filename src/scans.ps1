@@ -49,7 +49,7 @@ $script:Remediation = @{
 	TrustRelation  = "The domain trust is broken. Run the following from an admin prompt:`nTest-ComputerSecureChannel -Repair -Credential (Get-Credential)`nOr rejoin the machine to the domain."
 	AccessDenied   = "The current user does not have permission. Ensure you are running as Administrator and the folder is not read-only."
 	ShareInUse     = "Close any open files or Explorer windows pointing to the share, then try again."
-	PasswordPolicy = "Run setup again and use the generated password or enter a longer password with uppercase and lowercase letters, numbers, and symbols. Avoid including the username.`nLocal or domain Group Policy can enforce minimum length, complexity, password history, or additional restrictions. The generated password is not guaranteed to meet every policy. If it is still rejected, ask your administrator for the effective password requirements; do not disable the policy."
+	PasswordPolicy = "Use Generate or enter a longer password with uppercase and lowercase letters, numbers, and symbols, then retry. Avoid including the username.`nLocal or domain Group Policy can enforce minimum length, complexity, password history, or additional restrictions. The generated password is not guaranteed to meet every policy. If it is still rejected, ask your administrator for the effective password requirements; do not disable the policy."
 }
 
 # --- Preflight checks ---
@@ -837,10 +837,56 @@ function Show-StepResult($result) {
 		$message = "$($result.Message)`n`n$($result.Error)"
 		if ($result.ErrorId -match 'InvalidPassword') {
 			$title = 'Scan Account Password Rejected'
-			$message = "Windows rejected the password for the scan account. It may not meet the effective local or domain password policy.`n`nAccount-dependent steps will be skipped, and the rejected password will not be offered for copying."
+			$message = "Windows rejected the password for the scan account. It may not meet the effective local or domain password policy."
 		}
 		Show-ErrorPopup -Owner $script:progressWindow -Title $title -Message $message -Remediation $tip
 	}
+}
+
+function Show-PasswordRetryDialog {
+	param([string]$ErrorText)
+
+	[xml]$passwordRetryXaml = @"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        Title="PrintMaster Scans - Password Rejected" Width="480" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
+        Background="$($script:thBg)" Foreground="$($script:thFg)" FontFamily="Segoe UI" FontSize="13">
+$($script:themeResources)
+    <StackPanel Margin="12">
+        <TextBlock Text="Windows rejected the scan-account password. Setup is paused." TextWrapping="Wrap" Margin="0,0,0,8"/>
+        <TextBlock Name="txtError" TextWrapping="Wrap" Margin="0,0,0,8"/>
+        <TextBlock Name="txtRemediation" TextWrapping="Wrap" Margin="0,0,0,12"/>
+        <TextBlock Text="New password:" Margin="0,0,0,6"/>
+        <DockPanel Margin="0,0,0,12">
+            <Button DockPanel.Dock="Right" Name="btnGenerate" Content="Generate" Width="85" Margin="8,0,0,0"/>
+            <TextBox Name="txtPassword"/>
+        </DockPanel>
+        <TextBlock Text="Retry resumes account setup before any remaining steps. Cancel stops setup." TextWrapping="Wrap" Margin="0,0,0,12"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Name="btnRetry" Content="Retry" Width="75" Height="24" IsDefault="True" Margin="0,0,8,0"/>
+            <Button Name="btnCancel" Content="Cancel setup" Width="100" Height="24" IsCancel="True"/>
+        </StackPanel>
+    </StackPanel>
+</Window>
+"@
+	$passwordWindow = [Windows.Markup.XamlReader]::Load([System.Xml.XmlNodeReader]::new($passwordRetryXaml))
+	$passwordWindow.Owner = $script:progressWindow
+	$passwordWindow.Icon = New-PrintMasterIcon
+	Set-WindowTheme $passwordWindow
+	$passwordWindow.FindName('txtError').Text = $ErrorText
+	$passwordWindow.FindName('txtRemediation').Text = $script:Remediation.PasswordPolicy
+	$passwordWindow.FindName('txtPassword').Add_TextChanged({
+		$passwordWindow.FindName('btnRetry').IsEnabled = -not [string]::IsNullOrWhiteSpace($passwordWindow.FindName('txtPassword').Text)
+	})
+	$passwordWindow.FindName('txtPassword').Text = $script:scanPass
+	$passwordWindow.FindName('btnGenerate').Add_Click({
+		$passwordWindow.FindName('txtPassword').Text = New-RandomPassword
+	})
+	$passwordWindow.FindName('btnRetry').Add_Click({ $passwordWindow.DialogResult = $true })
+	if ($passwordWindow.ShowDialog() -eq $true) {
+		return $passwordWindow.FindName('txtPassword').Text
+	}
+	return $null
 }
 
 # Gather computer details
@@ -855,49 +901,64 @@ $domainJoined = $computerDetails.PartOfDomain
 
 # Create/update scans user account and hide from login screen
 $scanUserConfigured = $true
-if ($createUser -eq $true) {
-	$userResults = Initialize-ScanUser -Username $scanUser -Password $scanPass -Description $description -HideFromLogin $hideUser -DomainJoined $domainJoined
-	foreach ($r in $userResults) { Show-StepResult $r }
+$setupCancelled = $false
+if ($createUser -or $hideUser) {
+	do {
+		$userResults = @(Initialize-ScanUser -Username $scanUser -Password $scanPass -Description $description -HideFromLogin $hideUser -DomainJoined $domainJoined)
+		$passwordFailure = $userResults | Where-Object { $_.AccountSetupFailed -and ($_.ErrorId -match 'InvalidPassword' -or $_.Error -match '\b2245\b') } | Select-Object -First 1
+		if ($passwordFailure) {
+			$newPassword = Show-PasswordRetryDialog -ErrorText $passwordFailure.Error
+			if ($null -eq $newPassword) {
+				$setupCancelled = $true
+				break
+			}
+			$script:scanPass = $newPassword
+		}
+	} while ($passwordFailure)
+	if (-not $setupCancelled) {
+		foreach ($r in $userResults) { Show-StepResult $r }
+	}
 	$scanUserConfigured = @($userResults | Where-Object { $_.AccountSetupFailed }).Count -eq 0
 }
-elseif ($hideUser -eq $true) {
-	$userResults = Initialize-ScanUser -Username $scanUser -Password $scanPass -Description $description -HideFromLogin $true -DomainJoined $domainJoined
-	foreach ($r in $userResults) { Show-StepResult $r }
-	$scanUserConfigured = @($userResults | Where-Object { $_.AccountSetupFailed }).Count -eq 0
-}
 
-if (-not $scanUserConfigured) {
-	Show-StepResult @{ Status = 'Skipped'; Message = 'Skipped scan-user folder permissions and SMB share configuration because account setup failed'; Error = $null }
-}
-
-if ($createFolder -eq $true) {
-	$folderResults = Initialize-ScanFolder -FolderPath $folderPath -ScanUser $scanUser -SetPermissions ($setPermissions -and $scanUserConfigured) -DomainJoined $domainJoined
-	foreach ($r in $folderResults) { Show-StepResult $r }
-}
-
-if ($setShare -eq $true -and $scanUserConfigured) {
-	$shareResult = Initialize-ScanShare -ShareName $shareName -FolderPath $folderPath -ScanUser $scanUser
-	Show-StepResult $shareResult
-}
-
-if ($createShortcut -eq $true) {
-	$shortcutResult = Initialize-DesktopShortcut -FolderPath $folderPath -IconPath $iconPath -Description $description
-	Show-StepResult $shortcutResult
-}
-
-if ($checkNetworkSettings -eq $true) {
-	$netResults = Set-NetworkConfiguration -DomainJoined $domainJoined
-	foreach ($r in $netResults) { Show-StepResult $r }
-}
-
-Set-ProgressBar "Finished" 0
-$script:progressWindow.FindName('progressBar').Value = $script:progressMax
-if ($script:hasErrors) {
-	$script:progressWindow.Title = 'PrintMaster Scans Setup - Completed with errors'
-	$script:progressWindow.FindName('txtStatus').Text = 'Completed with errors (see details above)'
+if ($setupCancelled) {
+	Set-ProgressBar 'Setup canceled after password rejection; remaining steps were not run.' 0
+	$script:progressWindow.Title = 'PrintMaster Scans Setup - Canceled'
 }
 else {
-	$script:progressWindow.Title = 'PrintMaster Scans Setup - Finished'
+	if (-not $scanUserConfigured) {
+		Show-StepResult @{ Status = 'Skipped'; Message = 'Skipped scan-user folder permissions and SMB share configuration because account setup failed'; Error = $null }
+	}
+
+	if ($createFolder -eq $true) {
+		$folderResults = Initialize-ScanFolder -FolderPath $folderPath -ScanUser $scanUser -SetPermissions ($setPermissions -and $scanUserConfigured) -DomainJoined $domainJoined
+		foreach ($r in $folderResults) { Show-StepResult $r }
+	}
+
+	if ($setShare -eq $true -and $scanUserConfigured) {
+		$shareResult = Initialize-ScanShare -ShareName $shareName -FolderPath $folderPath -ScanUser $scanUser
+		Show-StepResult $shareResult
+	}
+
+	if ($createShortcut -eq $true) {
+		$shortcutResult = Initialize-DesktopShortcut -FolderPath $folderPath -IconPath $iconPath -Description $description
+		Show-StepResult $shortcutResult
+	}
+
+	if ($checkNetworkSettings -eq $true) {
+		$netResults = Set-NetworkConfiguration -DomainJoined $domainJoined
+		foreach ($r in $netResults) { Show-StepResult $r }
+	}
+
+	Set-ProgressBar "Finished" 0
+	$script:progressWindow.FindName('progressBar').Value = $script:progressMax
+	if ($script:hasErrors) {
+		$script:progressWindow.Title = 'PrintMaster Scans Setup - Completed with errors'
+		$script:progressWindow.FindName('txtStatus').Text = 'Completed with errors (see details above)'
+	}
+	else {
+		$script:progressWindow.Title = 'PrintMaster Scans Setup - Finished'
+	}
 }
 $script:progressWindow.FindName('btnDone').IsEnabled = $true
 if ($createUser -and $scanUserConfigured) { $script:progressWindow.FindName('btnCopyPassword').IsEnabled = $true }
