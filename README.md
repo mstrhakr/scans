@@ -1,10 +1,13 @@
-![PrintMaster Scans banner](img/banner.png)
+<div align="center">
+  <img src="img/banner.png" alt="PrintMaster Scans banner" width="900">
 
 [![Latest release](https://img.shields.io/github/v/release/Printmaster-Org/scans?label=release&color=268BD2&style=flat)](https://github.com/Printmaster-Org/scans/releases/latest)
 [![CI](https://github.com/Printmaster-Org/scans/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Printmaster-Org/scans/actions/workflows/ci.yml)
 [![Release downloads](https://img.shields.io/github/downloads/Printmaster-Org/scans/total?color=2AA198&style=flat)](https://github.com/Printmaster-Org/scans/releases)
 [![Documentation](https://img.shields.io/badge/docs-scan--to--SMB-268BD2?style=flat)](https://docs.printmaster.work/guides/scans/)
 ![Profile Views](https://komarev.com/ghpvc/?username=mstrhakr-scans&label=views&color=268BD2&style=flat)
+
+</div>
 
 A lightweight PowerShell utility that configures a Windows PC for network scanning in one click. Creates a dedicated scan user, shared folder, firewall rules, and desktop shortcut — no manual setup required.
 
