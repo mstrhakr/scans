@@ -115,6 +115,29 @@ Describe 'Scan account password errors' {
 		Assert-MockCalled Set-LocalUser -Times 1 -Exactly -Scope It
 	}
 
+	It 'passes the production description within the 48-character account limit on creation and update' {
+		$assignment = $ast.Find({
+			param($node)
+			$node -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+			($node.Left.Extent.Text -replace '^\[string\]', '') -eq '$description'
+		}, $true)
+		. ([scriptblock]::Create($assignment.Extent.Text))
+		$description | Should Not BeNullOrEmpty
+		($description.Length -le 48) | Should Be $true
+		$description | Should Be 'Scanning provided by PrintMaster'
+		$result = @(Initialize-ScanUser -Username scans -Password 'Valid-Example123!' -Description $description)
+		$result[0].Status | Should Be 'Success'
+		Assert-MockCalled New-LocalUser -Times 1 -Exactly -Scope It -ParameterFilter {
+			$Description -eq 'Scanning provided by PrintMaster' -and $Description.Length -le 48
+		}
+		Mock Get-LocalUser { [pscustomobject]@{ Name = 'scans' } }
+		$result = @(Initialize-ScanUser -Username scans -Password 'Valid-Example123!' -Description $description)
+		$result[0].Status | Should Be 'Success'
+		Assert-MockCalled Set-LocalUser -Times 1 -Exactly -Scope It -ParameterFilter {
+			$Description -eq 'Scanning provided by PrintMaster' -and $Description.Length -le 48
+		}
+	}
+
 	It 'preserves non-password failures without classifying them as password errors' {
 		Mock New-LocalUser { Write-Error 'Access is denied' -ErrorId AccessDenied }
 		$result = @(Initialize-ScanUser -Username scans -Password example)
